@@ -109,12 +109,10 @@ bool MODBUS_COM::getModbusResultMsg(uint8_t result)
 
 bool MODBUS_COM::getModbusValue(uint16_t register_id, modbus_entity_t modbus_entity, uint16_t *value_ptr, uint16_t readBytes)
 {
-    // writeLog("Requesting data");
     for (uint8_t i = 0; i < MODBUS_RETRIES; i++)
     {
         if (MODBUS_RETRIES > 1)
         {
-            // writeLog("Trial %d/%d", i + 1, MODBUS_RETRIES);
         }
         if (modbus_entity == MODBUS_TYPE_HOLDING)
         {
@@ -177,7 +175,6 @@ bool MODBUS_COM::readModbusRegisterToJson(const modbus_register_t *reg, JsonObje
     {
         return false; // Return false if invalid input
     }
-    // writeLog("Register id=%d type=0x%x name=%s", reg->id, reg->type, reg->name);
     uint16_t raw_value = 0;
 
     if (reg->type == REGISTER_TYPE_VIRTUAL_CALLBACK)
@@ -204,30 +201,23 @@ bool MODBUS_COM::readModbusRegisterToJson(const modbus_register_t *reg, JsonObje
 
     if (getModbusValue(reg->id, reg->modbus_entity, &raw_value, readBytes))
     {
-        //writeLog("Raw value: %s=%#06x\n", reg->name, raw_value);
-
         switch (reg->type)
         {
         case REGISTER_TYPE_U16:
-            // writeLog("Value: %u", raw_value);
             (*variant)[reg->name] = raw_value + reg->offset;
             break;
         case REGISTER_TYPE_INT16:
-            // writeLog("Value: %u", raw_value);
             (*variant)[reg->name] = static_cast<int16_t>(raw_value) + reg->offset;
             break;
         case REGISTER_TYPE_U32:
-            // writeLog("Value: %u", raw_value);
             (*variant)[reg->name] = (raw_value + (_mb.getResponseBuffer(1) << 16)) + reg->offset;
             break;
         case REGISTER_TYPE_U32_ONE_DECIMAL:
-            // writeLog("Value: %u", raw_value);
             (*variant)[reg->name] = (raw_value + (_mb.getResponseBuffer(1) << 16)) * 0.1 + reg->offset;
             break;
         case REGISTER_TYPE_DIEMATIC_ONE_DECIMAL:
             if (decodeDiematicDecimal(raw_value, 1, &final_value))
             {
-                // writeLog("Raw value: %#06x, floatValue: %f",raw_value, final_value);
                 (*variant)[reg->name] = ((int)(final_value * 100 + 0.5) / 100.0) + reg->offset;
             }
             else
@@ -239,7 +229,6 @@ bool MODBUS_COM::readModbusRegisterToJson(const modbus_register_t *reg, JsonObje
         case REGISTER_TYPE_DIEMATIC_TWO_DECIMAL:
             if (decodeDiematicDecimal(raw_value, 2, &final_value))
             {
-                // writeLog("Value: %.1f", final_value);
                 (*variant)[reg->name] = ((int)(final_value * 1000 + 0.5) / 1000.0) + reg->offset;
             }
             else
@@ -258,7 +247,6 @@ bool MODBUS_COM::readModbusRegisterToJson(const modbus_register_t *reg, JsonObje
                     break;
                 }
                 const uint8_t bit_value = raw_value >> j & 1;
-                //writeLog(" [bit%02d] %s=%d", j, bit_varname, bit_value);
                 (*variant)[bit_varname] = bit_value;
             }
             break;
@@ -276,7 +264,6 @@ bool MODBUS_COM::readModbusRegisterToJson(const modbus_register_t *reg, JsonObje
                 }
                 if (j == raw_value)
                 {
-                    // writeLog("Match found, value: %s", bit_varname);
                     (*variant)[reg->name] = bit_varname;
                     isfound = true;
                     break;
@@ -326,13 +313,11 @@ bool MODBUS_COM::readModbusRegisterToJson(const modbus_register_t *reg, JsonObje
         writeLog("Request failed!");
         return false;
     }
-    // writeLog("Request OK!");
     return true;
 }
 
 response_type_t MODBUS_COM::parseModbusToJson(modbus_register_info_t &register_info, bool skip_reg_on_error)
 {
-    // writeLog("parseModbusToJson %d", register_info.array_size);
     if (register_info.curr_register >= register_info.array_size)
     {
         register_info.curr_register = 0;

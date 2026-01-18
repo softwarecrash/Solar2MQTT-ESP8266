@@ -82,6 +82,15 @@ public:
     String sendCommand(String command);
 
     /**
+     * @brief Run a serial TX/RX loopback test.
+     */
+    bool loopbackTest(String &details);
+
+    void setSuspend(bool enabled);
+    bool isSuspended() const;
+    bool isBusy() const;
+
+    /**
      * @brief
      *
      */
@@ -98,6 +107,9 @@ public:
 
 private: 
     unsigned int serialIntfBaud;
+    volatile uint8_t busyCount = 0;
+    volatile bool suspendSerial = false;
+    volatile bool abortAutoDetect = false;
 
     unsigned long previousTime = 0;
     unsigned long delayTime = 100;

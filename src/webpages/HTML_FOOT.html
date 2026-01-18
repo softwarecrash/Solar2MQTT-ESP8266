@@ -1,12 +1,6 @@
 
-<!--
-https://bootsnipp.com/snippets/bx9Ne
-https://write.corbpie.com/sonar-ping-dot-with-css/
-https://www.amitmerchant.com/ping-animation-with-minimal-css/
--->
-
 <figure class="text-center">
-    Solar2MQTT <a id="software_version">%pre_software_version%</a> By <a href="https://github.com/softwarecrash/Solar2MQTT"
+    Solar2MQTT <a id="software_version">-</a> By <a href="https://github.com/softwarecrash/Solar2MQTT"
         target="_blank">Softwarecrash</a>
     <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank"><img
             alt="Creative Commons License" style="border-width:0"
@@ -22,26 +16,69 @@ https://www.amitmerchant.com/ping-animation-with-minimal-css/
 
 <script>
     $(document).ready(function () {
-        $.getJSON("https://api.github.com/repos/softwarecrash/Solar2MQTT/releases/latest", function () {
-        })
-            .done(function (data) {
-                console.log("get data from github done success");
-                $('#fwdownload').attr('href', data.html_url);
-                $('#gitversion').text(data.tag_name.substring(1));
-                let x = data.tag_name.substring(1).split('.').map(e => parseInt(e));
-                let y = "%pre_swversion%".split('.').map(e => parseInt(e));
-                let z = "";
-                for (i = 0; i < x.length; i++) { if (x[i] === y[i]) { z += "e"; } else if (x[i] > y[i]) { z += "m"; } else { z += "l"; } }
-                if (!z.match(/[l|m]/g)) {
-                    console.log("Git-Version equal, nothing to do.");
-                } else if (z.split('e').join('')[0] == "m") {
-                    console.log("Git-Version higher, activate notification.");
-                    document.getElementById("update_alert").style.display = '';
-                } else { console.log("Git-Version lower, nothing to do."); }
+        const CACHE_KEY = "s2mqtt_release_latest";
+        const CACHE_TS_KEY = "s2mqtt_release_latest_ts";
+        const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+        function readCache() {
+            try {
+                const ts = Number(localStorage.getItem(CACHE_TS_KEY) || "0");
+                if (!ts || (Date.now() - ts) > CACHE_TTL_MS) {
+                    return null;
+                }
+                const raw = localStorage.getItem(CACHE_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function writeCache(data) {
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+            } catch (e) {
+            }
+        }
+
+        function applyReleaseInfo(data, currentVersion) {
+            if (!data || !data.tag_name) {
+                return;
+            }
+            $('#fwdownload').attr('href', data.html_url);
+            $('#gitversion').text(data.tag_name.substring(1));
+            let x = data.tag_name.substring(1).split('.').map(e => parseInt(e));
+            let y = currentVersion.split('.').map(e => parseInt(e));
+            let z = "";
+            for (i = 0; i < x.length; i++) { if (x[i] === y[i]) { z += "e"; } else if (x[i] > y[i]) { z += "m"; } else { z += "l"; } }
+            if (!z.match(/[l|m]/g)) {
+                return;
+            } else if (z.split('e').join('')[0] == "m") {
+                document.getElementById("update_alert").style.display = '';
+            }
+        }
+
+        loadMeta().then(function (meta) {
+            var currentVersion = (meta.sw_version || meta.software_version || "0.0.0").toString();
+            if (meta.software_version) {
+                $('#software_version').text(meta.software_version);
+            }
+
+            const cached = readCache();
+            if (cached) {
+                applyReleaseInfo(cached, currentVersion);
+                return;
+            }
+
+            $.getJSON("https://api.github.com/repos/softwarecrash/Solar2MQTT/releases/latest", function () {
             })
-            .fail(function () {
-                console.log("error can not get version");
-            });
+                .done(function (data) {
+                    writeCache(data);
+                    applyReleaseInfo(data, currentVersion);
+                })
+                .fail(function () {
+                });
+        });
     });
 </script>
 

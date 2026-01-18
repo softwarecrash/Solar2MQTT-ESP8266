@@ -1,4 +1,4 @@
-#ifndef MAIN_H
+﻿#ifndef MAIN_H
 #define MAIN_H
 
 //#include <WebSerialLite.h>
@@ -271,3 +271,4 @@ static const char *const haLiveDescriptor[][4]{
     {DESCR_Warning_Code, "alert-outline", "", ""}};
 
 #endif
+

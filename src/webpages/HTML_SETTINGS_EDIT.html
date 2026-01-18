@@ -1,4 +1,3 @@
-<!-- %pre_head_template% -->
 
 <figure class="text-center">
     <h1>Edit Configuration</h1>
@@ -7,74 +6,74 @@
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="devicenamedesc">Device Name</span>
         <input type="text" class="form-control" aria-describedby="devicenamedesc" id="devicename" name="post_deviceName"
-            maxlength="35" value="%pre_device_name%" onkeyup="this.value=this.value.replace(/\s+/g,'_');">
+            value="" onkeyup="this.value=this.value.replace(/\s+/g,'_');">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqttserverdesc">MQTT Server</span>
         <input type="text" class="form-control" aria-describedby="mqttserverdesc" id="mqttserver" name="post_mqttServer"
-            maxlength="35" value="%pre_mqtt_server%">
+            value="">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqttportdesc">MQTT Port</span>
         <input type="text" class="form-control" aria-describedby="mqttportdesc" id="mqttport" name="post_mqttPort"
-            maxlength="5" value="%pre_mqtt_port%">
+            maxlength="5" value="">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqttuserdesc">MQTT User</span>
         <input type="text" class="form-control" aria-describedby="mqttuserdesc" id="mqttuser" name="post_mqttUser"
-            maxlength="35" value="%pre_mqtt_user%">
+            value="">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqttpassworddesc">MQTT Password</span>
-        <input type="password" class="form-control" aria-describedby="mqttpassworddesc" id="mqttpassword" maxlength="35"
-            name="post_mqttPassword" value="%pre_mqtt_pass%">
+        <input type="password" class="form-control" aria-describedby="mqttpassworddesc" id="mqttpassword"
+            name="post_mqttPassword" value="">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqtttopicdesc">MQTT Topic</span>
         <input type="text" class="form-control" aria-describedby="mqtttopicdesc" id="mqtttopic" name="post_mqttTopic"
-            maxlength="35" value="%pre_mqtt_topic%" onkeyup="this.value=this.value.replace(/\s+/g,'_');">
+            value="" onkeyup="this.value=this.value.replace(/\s+/g,'_');">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqttrefreshdesc">MQTT Refresh (sec)</span>
         <input type="text" class="form-control" aria-describedby="mqttrefreshdesc" id="mqttrefresh" maxlength="5"
-            name="post_mqttRefresh" value="%pre_mqtt_refresh%">
+            name="post_mqttRefresh" value="">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqtttriggerdesc">MQTT Data Trigger Path</span>
-        <input type="text" class="form-control" aria-describedby="mqtttrigerdesc" id="mqtttrigger" maxlength="80"
-            name="post_mqtttrigger" value="%pre_mqtt_mqtttrigger%" onkeyup="this.value=this.value.replace(/\s+/g,'_');">
+        <input type="text" class="form-control" aria-describedby="mqtttrigerdesc" id="mqtttrigger"
+            name="post_mqtttrigger" value="" onkeyup="this.value=this.value.replace(/\s+/g,'_');">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqttjsondesc">MQTT Json Style</span>
-        <div class="form-switch form-control mqtt-settings-switch" style="width:50%%; text-align: center;">
+        <div class="form-switch form-control mqtt-settings-switch" style="width:50%; text-align: center;">
             <input type="checkbox" class="form-check-input form control" aria-describedby="mqttjsondesc" role="switch"
-                id="mqttjson" name="post_mqttjson" value="true" %pre_mqtt_json%>
+                id="mqttjson" name="post_mqttjson" value="true">
         </div>
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqtthadisc">HA Discovery</span>
-        <div class="form-switch form-control mqtt-settings-switch" style="width:50%%; text-align: center;">
+        <div class="form-switch form-control mqtt-settings-switch" style="width:50%; text-align: center;">
             <input type="checkbox" class="form-check-input form control" aria-describedby="mqtthadisc" role="switch"
-                id="post_hadiscovery" name="post_hadiscovery" value="true" %pre_hadiscovery% onclick='haSwitch()'>
+                id="post_hadiscovery" name="post_hadiscovery" value="true" onclick='haSwitch()'>
         </div>
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="webuicolormode">WebUI Dark Mode</span>
-        <div class="form-switch form-control" style="width:50%%; text-align: center;">
+        <div class="form-switch form-control" style="width:50%; text-align: center;">
             <input type="checkbox" class="form-check-input form control" aria-describedby="webuicolormode" role="switch"
-                id="mqttjson" name="post_webuicolormode" value="true" %pre_webuidarkmode%>
+                id="webuicolormode" name="post_webuicolormode" value="true">
         </div>
     </div>
 
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="httpUserdesc">HTTP Username</span>
         <input type="text" class="form-control" aria-describedby="httpUserdesc" id="httpUser" name="post_httpUser"
-            maxlength="40" maxlength="35" value="%pre_http_user%">
+            value="">
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="httpPassdesc">HTTP Password</span>
         <input type="password" class="form-control" aria-describedby="httpPassdesc" id="httpPass" name="post_httpPass"
-            maxlength="40" maxlength="35" value="%pre_http_pass%">
+            value="">
     </div>
 
     <div class="d-grid gap-2">
@@ -85,7 +84,24 @@
 
 <script type='text/javascript'>
     $(document).ready(function (load) {
-        haSwitch();
+        loadMeta();
+        loadConfig().then(function (cfg) {
+            if (!cfg) return;
+            document.getElementById('devicename').value = cfg.device_name || '';
+            document.getElementById('mqttserver').value = cfg.mqtt_server || '';
+            document.getElementById('mqttport').value = cfg.mqtt_port || '';
+            document.getElementById('mqttuser').value = cfg.mqtt_user || '';
+            document.getElementById('mqttpassword').value = cfg.mqtt_password || '';
+            document.getElementById('mqtttopic').value = cfg.mqtt_topic || '';
+            document.getElementById('mqttrefresh').value = cfg.mqtt_refresh || '';
+            document.getElementById('mqtttrigger').value = cfg.mqtt_trigger || '';
+            document.getElementById('mqttjson').checked = !!cfg.mqtt_json;
+            document.getElementById('post_hadiscovery').checked = !!cfg.ha_discovery;
+            document.getElementById('webuicolormode').checked = !!cfg.webui_dark_mode;
+            document.getElementById('httpUser').value = cfg.http_user || '';
+            document.getElementById('httpPass').value = cfg.http_pass || '';
+            haSwitch();
+        });
     });
     function haSwitch() {
         if (document.getElementById('post_hadiscovery').checked) {
@@ -96,5 +112,4 @@
     }
 </script>
 
-<!-- %pre_foot_template%
-<p hidden></p> -->
+

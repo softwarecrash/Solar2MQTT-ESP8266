@@ -1,7 +1,6 @@
-<!-- %pre_head_template% -->
 
 <figure class="text-center">
-    <h2 id="device_name">%pre_device_name%<svg class="wifi-symbol" viewBox="0 15 64 64"
+    <h2 id="device_name"><span id="device_name_text">Solar2MQTT</span><svg class="wifi-symbol" viewBox="0 15 64 64"
             xmlns="http://www.w3.org/2000/svg" width="32" height="32">
             <title id="wifiTitle">WiFi-Signal</title>
             <path id="level5" d="M8 32 A33 32 0 0 1 56 32" stroke="black" stroke-width="4" fill="none" />
@@ -11,14 +10,6 @@
             <circle id="level1" cx="32" cy="56" r="3" fill="black" />
         </svg></h2>
 </figure>
-<!--
-<div class="dR row gx-0 mb-1" id="alert" style="padding-bottom: 0rem;padding-top: 0px; display: none;">
-    <div id="alert" class="" role="alert" style="text-align: center;">
-        <i id="alert_icon" class=""></i>
-        <span id="alert_message"></span>
-    </div>
-</div>
--->
 <div class="dR row gx-0 mb-2">
     <div class="col" id="ClickSOC">
         <div class="progress" style="height:1.8rem;">
@@ -94,10 +85,13 @@
 
 <script>
     $(document).ready(function () {
-        setTimeout(initWebSocket(), 500);
+        loadMeta();
+        setTimeout(initWebSocket, 500);
     });
-    var gateway = `ws://${window.location.host}/ws`;
+    var wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    var gateway = `${wsProto}://${window.location.host}/ws`;
     var websocket;
+    var wsReconnectTimer;
     var ctx;
     var cellChart;
     var createBarChart = true;
@@ -108,6 +102,9 @@
 
     function initWebSocket() {
         //console.log('Trying to open a WebSocket connection...');
+        if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
         websocket = new WebSocket(gateway);
         websocket.onopen = onOpen;
         websocket.onclose = onClose;
@@ -120,17 +117,31 @@
     function onClose(event) {
         //document.getElementById("status").innerHTML = 'WS Closed';
         console.log('Connection closed');
-        setTimeout(initWebSocket, 3000);
+        scheduleReconnect();
     }
     function onError(event) {
         //document.getElementById("status").innerHTML = 'WS Lost';
         console.log('Connection lost');
+        try {
+            websocket.close();
+        } catch (e) {
+        }
+        scheduleReconnect();
+    }
+    function scheduleReconnect() {
+        if (wsReconnectTimer) {
+            return;
+        }
+        wsReconnectTimer = setTimeout(() => {
+            wsReconnectTimer = null;
+            initWebSocket();
+        }, 3000);
     }
     function onMessage(event) {
         var data = JSON.parse(event.data);
         setWiFiSignal(data.Wifi_RSSI);
         const mappings = [
-            ["packSOC", "Battery_Percent", "%%"],
+            ["packSOC", "Battery_Percent", "%"],
             ["pv_volt", "PV_Input_Voltage", "V"],
             ["pv_current", "PV_Input_Current", "A"],
             ["pv_power", "PV_Charging_Power", "W", true],  // 'true' indicates rounding
@@ -142,10 +153,10 @@
             ["ac_out_volt", "AC_out_Voltage", "V"],
             ["ac_out_hz", "AC_out_Frequenz", "Hz"],
             ["ac_out_power", "AC_out_Watt", "W"],
-            ["ac_out_percent", "AC_out_percent", "%%"],
+            ["ac_out_percent", "AC_out_percent", "%"],
             ["heatsink_temp", "Inverter_Bus_Temperature", "°C"],
             ["batt_volt", "Battery_Voltage", "V"],
-            ["batt_percent", "Battery_Percent", "%%"],
+            ["batt_percent", "Battery_Percent", "%"],
             ["batt_load", "Battery_Load", "A"],
             ["ivmode", "Inverter_Operation_Mode", ""]
         ];
@@ -161,7 +172,7 @@
         });
 
 
-        $('#packSOC').width(data.battery_percent + '%%').attr('aria-valuenow', data.battery_percent);
+        $('#packSOC').width(data.battery_percent + '%').attr('aria-valuenow', data.battery_percent);
 
         dataFields.forEach(dRDiv => {
             const spans = dRDiv.querySelectorAll('.dF span');
@@ -181,56 +192,6 @@
 
     }
 
-    /*
-    function alert(data) {
-        alertListArr = [];
-        if (data.Device.ESP_VCC < 2.8) {
-            alertListArr.push("ESP Volt to Low");
-        }
-        // if (!data.Pack.Fail_Codes.length == 0) {
-        //     var i;
-        //    var i_list = data.Pack.Fail_Codes.split(',');
-        //   for (var i_index in i_list) {
-        //        i = i_list[i_index];
-        //      alertListArr.push(i_list[i_index]);
-        //  }
-        // }
-        if (alertListArr.length == 0) {
-            document.getElementById("alert").style.display = 'none';
-        } else {
-            document.getElementById("alert").style.display = '';
-        }
-        if (kickRefresh) {
-            refreshAlert();
-            kickRefresh = false;
-        }
-    }
-
-    function refreshAlert() {
-        var alertValue;
-        if (alertListitem < alertListArr.length - 1) {
-            alertValue = (alertListArr[alertListitem]);
-            alertListitem++;
-        } else {
-            alertValue = (alertListArr[alertListitem]);
-            alertListitem = 0;
-        }
-        if (typeof alertValue !== 'undefined') {
-            if (alertValue[alertValue.length - 1] == "1") {
-
-                document.getElementById("alert_icon").className = "bi bi-info-circle-fill";
-                document.getElementById("alert").className = "row gx-0 mb-2 alert alert-info";
-            } else if (alertValue[alertValue.length - 1] == "2") {
-                document.getElementById("alert_icon").className = "bi bi-exclamation-circle-fill";
-                document.getElementById("alert").className = "row gx-0 mb-2 alert alert-warning";
-            } else {
-                document.getElementById("alert_icon").className = "bi bi-x-circle-fill";
-                document.getElementById("alert").className = "row gx-0 mb-2 alert alert-danger";
-            }
-        }
-        document.getElementById('alert_message').innerHTML = (alertValue);
-    }
-*/
 
     const minRSSI = -85, maxRSSI = -60;
     function setWiFiSignal(rssi) {
@@ -243,7 +204,7 @@
         const svg = document.querySelector(".wifi-symbol");
         if (svg) {
             const title = svg.querySelector("title");
-            if (title) title.textContent = p + "%% Strength";
+            if (title) title.textContent = p + "% Strength";
         }
 
         lv.forEach((id, i) => {
@@ -253,6 +214,4 @@
         });
     }
 </script>
-<!-- 
-%pre_foot_template%
-<p hidden></p> -->
+

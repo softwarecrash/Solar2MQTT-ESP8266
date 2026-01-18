@@ -66,6 +66,31 @@ const char *const Q1_87[] = {
     DESCR_unknown,   // Sync frequency
     DESCR_Inverter_Charge_State,
 };
+unsigned int Q1_22_length = 22;
+const char *const Q1_22[] = {
+    DESCR_Time_Until_Absorb_Charge, // Time until the end of absorb charging
+    DESCR_Time_Until_Float_Charge,  // Time until the end of float charging
+    DESCR_unknown,                  // SCC Flag
+    DESCR_unknown,                  // AllowSccOnFlag
+    DESCR_unknown,                  // ChargeAverageCurrent
+    DESCR_Tracker_Temperature,      // SCC PWM temperature
+    DESCR_Inverter_Temperature,
+    DESCR_Battery_Temperature,
+    DESCR_Transformer_Temperature,
+    DESCR_unknown, // GPIO13
+    DESCR_Fan_Lock_Status,
+    DESCR_unknown,
+    DESCR_Fan_Speed, // Fan PWM speed
+    DESCR_unknown,   // SCC charge power
+    DESCR_unknown,   // Parallel Warning
+    DESCR_unknown,   // Sync frequency
+    DESCR_Inverter_Charge_State,
+    DESCR_unknown,
+    DESCR_unknown,
+    DESCR_unknown,
+    DESCR_unknown,
+    DESCR_unknown,
+};
 unsigned int Q1_108_length = 27;
 const char *const Q1_108[] = {
     DESCR_Time_Until_Absorb_Charge, // Time until the end of absorb charging
@@ -102,8 +127,7 @@ bool PI_Serial::PIXX_Q1()
     if (protocol == PI30 || protocol == PI18) // pi30 and pi18 devices react both on Q1
     {
         const char *const *q1List = nullptr;
-        unsigned int q1LList_length;
-        bool handleAnswer = false;
+        unsigned int q1LList_length = 0;
         String strs[30];
         int StringCount = 0;
         String commandAnswer = this->requestData("Q1");
@@ -113,75 +137,70 @@ bool PI_Serial::PIXX_Q1()
             return true;
         if (commandAnswer == DESCR_req_ERCRC)
             return false;
-        switch (commandAnswer.length())
+        while (commandAnswer.length() > 0 && StringCount < 30)
         {
-        case 47:
-            q1List = Q1_47;
-            q1LList_length = Q1_47_length;
-            handleAnswer = true;
-            break;
-        case 70:
-            q1List = Q1_70;
-            q1LList_length = Q1_70_length;
-            handleAnswer = true;
-            break;
-        case 87:
-            q1List = Q1_87;
-            q1LList_length = Q1_87_length;
-            handleAnswer = true;
-            break;
-        case 105:
-        case 108:
+            int index = commandAnswer.indexOf(delimiter);
+            if (index == -1) // No separator found
+            {
+                strs[StringCount++] = commandAnswer;
+                break;
+            }
+            else
+            {
+                strs[StringCount++] = commandAnswer.substring(0, index);
+                commandAnswer = commandAnswer.substring(index + 1);
+            }
+        }
+        if (StringCount >= (int)Q1_108_length)
+        {
             q1List = Q1_108;
             q1LList_length = Q1_108_length;
-            handleAnswer = true;
-            break;
-        default:
-            get.raw.q1 = "Wrong Length(" + (String)get.raw.q1.length() + "), Contact Dev:" + get.raw.q1;
-            break;
         }
-        if (handleAnswer)
+        else if (StringCount >= (int)Q1_22_length)
         {
-            while (commandAnswer.length() > 0)
-            {
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-            for (unsigned int i = 0; i < q1LList_length; i++)
-            {
-                if (!strs[i].isEmpty() && sizeof *q1List[i] != 0)
-                    liveData[q1List[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
+            q1List = Q1_22;
+            q1LList_length = Q1_22_length;
+        }
+        else if (StringCount >= (int)Q1_70_length)
+        {
+            q1List = Q1_70;
+            q1LList_length = Q1_70_length;
+        }
+        else if (StringCount >= (int)Q1_47_length)
+        {
+            q1List = Q1_47;
+            q1LList_length = Q1_47_length;
+        }
+        else
+        {
+            get.raw.q1 = "Wrong Field Count(" + (String)StringCount + "), Contact Dev:" + get.raw.q1;
+            return true;
+        }
+        for (unsigned int i = 0; i < q1LList_length && i < (unsigned int)StringCount; i++)
+        {
+            if (!strs[i].isEmpty() && strcmp(q1List[i], "") != 0)
+                liveData[q1List[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+        }
 
-            if (liveData[DESCR_Inverter_Charge_State].is<JsonVariant>())
+        if (liveData[DESCR_Inverter_Charge_State].is<JsonVariant>())
+        {
+            switch ((int)liveData[DESCR_Inverter_Charge_State].as<unsigned int>())
             {
-                switch ((int)liveData[DESCR_Inverter_Charge_State].as<unsigned int>())
-                {
-                default:
-                    // liveData["Inverter_Charge_State"] = "no data";
-                    break;
-                case 10:
-                    liveData[DESCR_Inverter_Charge_State] = DESCR_No_Charging;
-                    break;
-                case 11:
-                    liveData[DESCR_Inverter_Charge_State] = DESCR_Bulk_Stage;
-                    break;
-                case 12:
-                    liveData[DESCR_Inverter_Charge_State] = DESCR_Absorb;
-                    break;
-                case 13:
-                    liveData[DESCR_Inverter_Charge_State] = DESCR_Float;
-                    break;
-                }
+            default:
+                // liveData["Inverter_Charge_State"] = "no data";
+                break;
+            case 10:
+                liveData[DESCR_Inverter_Charge_State] = DESCR_No_Charging;
+                break;
+            case 11:
+                liveData[DESCR_Inverter_Charge_State] = DESCR_Bulk_Stage;
+                break;
+            case 12:
+                liveData[DESCR_Inverter_Charge_State] = DESCR_Absorb;
+                break;
+            case 13:
+                liveData[DESCR_Inverter_Charge_State] = DESCR_Float;
+                break;
             }
         }
         return true;

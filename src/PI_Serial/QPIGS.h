@@ -27,10 +27,32 @@ const char *const qpigs_106[] = {
     DESCR_Country,                        // ZZ
     DESCR_Solar_Feed_To_Grid_Power,       // AAAA
 };
-unsigned int qpigs_90_length = 24;
+unsigned int qpigs_90_length = 17;
 const char *const qpigs_90[] = {
     // 90 long have 17 fields
     // [PI34 / MPPT-3000], [PI30 HS MS MSX], [PI30 Revo], [PI30 PIP], [PI41 / LV5048]
+    DESCR_AC_In_Voltage,             // BBB.B
+    DESCR_AC_In_Frequenz,            // CC.C
+    DESCR_AC_Out_Voltage,            // DDD.D
+    DESCR_AC_Out_Frequenz,           // EE.E
+    DESCR_AC_Out_VA,                 // FFFF
+    DESCR_AC_Out_Watt,               // GGGG
+    DESCR_AC_Out_Percent,            // HHH
+    DESCR_Inverter_Bus_Voltage,      // III
+    DESCR_Battery_Voltage,           // JJ.JJ
+    DESCR_Battery_Charge_Current,    // KKK
+    DESCR_Battery_Percent,           // OOO
+    DESCR_Inverter_Bus_Temperature,  // TTTT
+    DESCR_PV_Input_Current,          // EE.E
+    DESCR_PV_Input_Voltage,          // UUU.U
+    DESCR_Battery_SCC_Volt,          // WW.WW
+    DESCR_Battery_Discharge_Current, // PPPP
+    DESCR_Status_Flag,               // b0-b7
+};
+unsigned int qpigs_21_length = 21;
+const char *const qpigs_21[] = {
+    // 21 fields
+    // [PI30 PIP-GK/MK], [PI41 / LV5048], [PI30 REVO reserved tail]
     DESCR_AC_In_Voltage,                  // BBB.B
     DESCR_AC_In_Frequenz,                 // CC.C
     DESCR_AC_Out_Voltage,                 // DDD.D
@@ -50,65 +72,9 @@ const char *const qpigs_90[] = {
     DESCR_Status_Flag,                    // b0-b7
     DESCR_Battery_Voltage_Offset_Fans_On, // QQ
     DESCR_EEPROM_Version,                 // VV
-    DESCR_PV_Charging_Power,              // MMMM
-    DESCR_Device_Status,                  // b8-b10
-    DESCR_Solar_Feed_To_Grid_Status,      // Y
-    DESCR_Country,                        // ZZ
-    DESCR_Solar_Feed_To_Grid_Power,       // AAAA
+    DESCR_PV_Charging_Power,              // MMMMM
+    DESCR_Device_Status,                  // b10b9b8
 };
-/* static const char *const qpigsList[][24] = {
-    // [PI34 / MPPT-3000], [PI30 HS MS MSX], [PI30 Revo], [PI30 PIP], [PI41 / LV5048]
-    {
-        "AC_in_Voltage",                  // BBB.B
-        "AC_in_Frequenz",                 // CC.C
-        "AC_out_Voltage",                 // DDD.D
-        "AC_out_Frequenz",                // EE.E
-        "AC_out_VA",                      // FFFF
-        "AC_out_Watt",                    // GGGG
-        "AC_out_percent",                 // HHH
-        "Inverter_Bus_Voltage",           // III
-        "Battery_Voltage",                // JJ.JJ
-        "Battery_Charge_Current",         // KKK
-        "Battery_Percent",                // OOO
-        "Inverter_Bus_Temperature",       // TTTT
-        DESCR_LIVE_PV_INPUT_CURRENT,               // EE.E
-        DESCR_LIVE_PV_INPUT_VOLTAGE,               // UUU.U
-        "Battery_SCC_Volt",               // WW.WW
-        "Battery_Discharge_Current",      // PPPP
-        "Status_Flag",                    // b0-b7
-        "Battery_voltage_offset_fans_on", // QQ
-        "EEPROM_Version",                 // VV
-        DESCR_LIVE_PV_CHARGING_POWER,              // MMMM
-        "Device_Status",                  // b8-b10
-        "Solar_feed_to_Grid_status",      // Y
-        "Country",                        // ZZ
-        "Solar_feed_to_grid_power",       // AAAA
-    },
-    // [PI16]
-    {
-        "Grid_voltage",             // AAA.A
-        "Output_power",             // BBBBBB
-        "Grid_frequency",           // CC.C
-        "Output_current",           // DDDD.D
-        "AC_output_voltage",        // EEE.E
-        "AC_output_power",          // FFFFF
-        "AC_output_frequency",      // GG.G
-        "AC_output_current",        // HHH.H
-        "Output_load_percent",      // III
-        "PBUS_voltage",             // JJJ.J
-        "SBUS_voltage",             // KKK.K
-        "Positive_battery_voltage", // LLL.L
-        "Negative_battery_voltage", // MMM.M
-        "Battery_capacity",         // NNN
-        "PV1_Input_Power",          // OOOOO
-        "PV2_Input_Power",          // PPPPP
-        "PV3_Input_Power",          // QQQQQ
-        "PV1_Input_Voltage",        // RRR.R
-        "PV2_Input_Voltage",        // SSS.S
-        "PV3_Input_Voltage",        // TTT.T
-        "Max_temperature",          // UUU.U
-    },
-}; */
 unsigned int qallList_length = 18;
 const char *const qallList[] = {
     // [PI30 Revo]
@@ -116,7 +82,7 @@ const char *const qallList[] = {
     DESCR_AC_In_Frequenz,            // CC.C
     DESCR_AC_Out_Voltage,            // DDD.D
     DESCR_AC_Out_Frequenz,           // EE.E
-    DESCR_AC_Out_VA,                 // FFFF
+    DESCR_AC_Out_Watt,               // FFFF
     DESCR_AC_Out_Percent,            // GGG
     DESCR_Battery_Voltage,           // HH.H
     DESCR_Battery_Percent,           // III
@@ -180,42 +146,32 @@ bool PI_Serial::PIXX_QPIGS()
     if (commandAnswerQPIGS == DESCR_req_ERCRC)
       return false;
 
-    byte commandAnswerLength = commandAnswerQPIGS.length();
-    // calculate the length with https://elmar-eigner.de/text-zeichen-laenge.html
-    if (commandAnswerLength >= 60 && commandAnswerLength <= 140)
+    // Split the string into substrings
+    String strs[30]; // buffer for string splitting
+    int StringCount = 0;
+    String commandAnswerQPIGSPayload = commandAnswerQPIGS;
+    while (commandAnswerQPIGSPayload.length() > 0 && StringCount < 30)
     {
-      if (commandAnswerLength <= 116)
+      int index = commandAnswerQPIGSPayload.indexOf(delimiter);
+      if (index == -1) // No separator found
       {
-        qpigsList = qpigs_106;
-        qpigsList_length = qpigs_106_length;
+        strs[StringCount++] = commandAnswerQPIGSPayload;
+        break;
       }
-      else if (commandAnswerLength > 131)
+      else
       {
-        qpigsList = qpigs_90;
-        qpigsList_length = qpigs_90_length;
+        strs[StringCount++] = commandAnswerQPIGSPayload.substring(0, index);
+        commandAnswerQPIGSPayload = commandAnswerQPIGSPayload.substring(index + 1);
       }
+    }
 
-      // Split the string into substrings
-      String strs[30]; // buffer for string splitting
-      int StringCount = 0;
-      while (commandAnswerQPIGS.length() > 0)
+    if (StringCount >= (int)qpigs_106_length)
+    {
+      qpigsList = qpigs_106;
+      qpigsList_length = qpigs_106_length;
+      for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
       {
-        int index = commandAnswerQPIGS.indexOf(delimiter);
-        if (index == -1) // No space found
-        {
-          strs[StringCount++] = commandAnswerQPIGS;
-          break;
-        }
-        else
-        {
-          strs[StringCount++] = commandAnswerQPIGS.substring(0, index);
-          commandAnswerQPIGS = commandAnswerQPIGS.substring(index + 1);
-        }
-      }
-
-      for (unsigned int i = 0; i < qpigsList_length; i++)
-      {
-        if (!strs[i].isEmpty() && sizeof *qpigsList[i] != 0)
+        if (!strs[i].isEmpty() && strcmp(qpigsList[i], "") != 0)
         {
           liveData[qpigsList[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
         }
@@ -224,100 +180,75 @@ bool PI_Serial::PIXX_QPIGS()
       liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
       liveData[DESCR_PV_Input_Power] = (liveData[DESCR_PV_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV_Input_Current].as<unsigned short>());
     }
+    else if (StringCount >= (int)qpigs_21_length)
+    {
+      qpigsList = qpigs_21;
+      qpigsList_length = qpigs_21_length;
+      for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
+      {
+        if (!strs[i].isEmpty() && strcmp(qpigsList[i], "") != 0)
+        {
+          liveData[qpigsList[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+        }
+      }
+      liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
+      liveData[DESCR_PV_Input_Power] = (liveData[DESCR_PV_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV_Input_Current].as<unsigned short>());
+    }
+    else if (StringCount >= (int)qpigs_90_length)
+    {
+      qpigsList = qpigs_90;
+      qpigsList_length = qpigs_90_length;
+      for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
+      {
+        if (!strs[i].isEmpty() && strcmp(qpigsList[i], "") != 0)
+        {
+          liveData[qpigsList[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+        }
+      }
+      liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
+      liveData[DESCR_PV_Input_Power] = (liveData[DESCR_PV_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV_Input_Current].as<unsigned short>());
+    }
+    else
+    {
+      get.raw.qpigs = "Wrong Field Count(" + (String)StringCount + "), Contact Dev:" + get.raw.qpigs;
+    }
 
-    /*       bool handleAnswer = false;
 
-          // or count how many fields it have and select the answer deepens on field count
-          int count = 1;
-          for (uint8_t i = 0; i < commandAnswerQPIGS.length(); i++)
-            if (commandAnswerQPIGS[i] == ' ')
-              count++;
-
-          switch (commandAnswerQPIGS.length())
-          {
-          case 106: // 000.0 00.0 230.6 50.0 0000 0000 000 356 25.89 001 092 0032 0001 052.2 25.87 00000 00110110 00 00 00045 010 - 21 fields
-            qlist = qpigs_106;
-            handleAnswer = true;
-            get.raw.qpigs = "Wrong Length(" + (String)count + "), Contact Dev:" + get.raw.qpigs;
-            break;
-          case 90: // 231.1 49.9 231.0 49.9 0000 0048 000 401 01.30 000 000 0026 0000 206.0 01.30 00000 00010110 - 21 fields
-            qlist = qpigs_90;
-            handleAnswer = true;
-            get.raw.qpigs = "Wrong Length(" + (String)count + "), Contact Dev:" + get.raw.qpigs;
-            break;
-          default:
-            // get.raw.qpigs = "Wrong Length(" + (String)get.raw.qpigs.length() + "), Contact Dev:" + get.raw.qpigs;
-            break;
-          } */
-
-    /*       byte commandAnswerLength = commandAnswerQPIGS.length();
-          // calculate the length with https://elmar-eigner.de/text-zeichen-laenge.html
-          if (commandAnswerLength >= 60 && commandAnswerLength <= 140)
-          {
-            if (commandAnswerLength <= 116)
-            {
-              protocolNum = 0;
-            }
-            else if (commandAnswerLength > 131)
-            {
-              protocolNum = 1;
-            }
-
-            // Split the string into substrings
-            String strs[30]; // buffer for string splitting
-            int StringCount = 0;
-            while (commandAnswerQPIGS.length() > 0)
-            {
-              int index = commandAnswerQPIGS.indexOf(delimiter);
-              if (index == -1) // No space found
-              {
-                strs[StringCount++] = commandAnswerQPIGS;
-                break;
-              }
-              else
-              {
-                strs[StringCount++] = commandAnswerQPIGS.substring(0, index);
-                commandAnswerQPIGS = commandAnswerQPIGS.substring(index + 1);
-              }
-            }
-
-            for (unsigned int i = 0; i < sizeof qpigsList[protocolNum] / sizeof qpigsList[protocolNum][0]; i++)
-            {
-              if (!strs[i].isEmpty() && strcmp(qpigsList[protocolNum][i], "") != 0)
-                liveData[qpigsList[protocolNum][i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-            // make some things pretty
-            liveData["Battery_Load"] = (liveData["Battery_Charge_Current"].as<unsigned short>() - liveData["Battery_Discharge_Current"].as<unsigned short>());
-            liveData["PV_Input_Power"] = (liveData["PV_Input_Voltage"].as<unsigned short>() * liveData["PV_Input_Current"].as<unsigned short>());
-          } */
-
-    if (get.raw.qall.length() > 10 /*get.raw.qall != "NAK" || get.raw.qall != "ERCRC" || get.raw.qall != ""*/)
+    if (get.raw.qall.length() > 0 && commandAnswerQALL != DESCR_req_NAK && commandAnswerQALL != DESCR_req_NOA && commandAnswerQALL != DESCR_req_ERCRC)
     {
       String strsQALL[30];
       //  Split the string into substrings
       int StringCountQALL = 0;
-      while (commandAnswerQALL.length() > 0)
+      String commandAnswerQALLPayload = commandAnswerQALL;
+      while (commandAnswerQALLPayload.length() > 0 && StringCountQALL < 30)
       {
-        int index = commandAnswerQALL.indexOf(delimiter);
-        if (index == -1) // No space found
+        int index = commandAnswerQALLPayload.indexOf(delimiter);
+        if (index == -1) // No separator found
         {
-          strsQALL[StringCountQALL++] = commandAnswerQALL;
+          strsQALL[StringCountQALL++] = commandAnswerQALLPayload;
           break;
         }
         else
         {
-          strsQALL[StringCountQALL++] = commandAnswerQALL.substring(0, index);
-          commandAnswerQALL = commandAnswerQALL.substring(index + 1);
+          strsQALL[StringCountQALL++] = commandAnswerQALLPayload.substring(0, index);
+          commandAnswerQALLPayload = commandAnswerQALLPayload.substring(index + 1);
         }
       }
 
-      for (unsigned int i = 0; i < qallList_length; i++)
+      if (StringCountQALL >= (int)qallList_length)
       {
-         if (!strsQALL[i].isEmpty() && sizeof *qpigsList[i] != 0)
-           liveData[qallList[i]] = (int)(strsQALL[i].toFloat() * 100 + 0.5) / 100.0;
+        for (unsigned int i = 0; i < qallList_length && i < (unsigned int)StringCountQALL; i++)
+        {
+           if (!strsQALL[i].isEmpty() && strcmp(qallList[i], "") != 0)
+             liveData[qallList[i]] = (int)(strsQALL[i].toFloat() * 100 + 0.5) / 100.0;
+        }
+        liveData[DESCR_Inverter_Operation_Mode] = getModeDesc((char)liveData[DESCR_Inverter_Operation_Mode].as<String>().charAt(0));
+        liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
       }
-       liveData[DESCR_Inverter_Operation_Mode] = getModeDesc((char)liveData[DESCR_Inverter_Operation_Mode].as<String>().charAt(0));
-       liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
+      else
+      {
+        get.raw.qall = "Wrong Field Count(" + (String)StringCountQALL + "), Contact Dev:" + get.raw.qall;
+      }
     }
 
     return true;
@@ -330,29 +261,27 @@ bool PI_Serial::PIXX_QPIGS()
       return true;
     if (commandAnswer == DESCR_req_ERCRC)
       return false;
-    byte commandAnswerLength = commandAnswer.length();
-
-    // calculate the length with https://elmar-eigner.de/text-zeichen-laenge.html
-    if (commandAnswerLength >= 60 && commandAnswerLength <= 140)
+    // Split the string into substrings
+    String strs[30]; // buffer for string splitting
+    int StringCount = 0;
+    String commandAnswerPayload = commandAnswer;
+    while (commandAnswerPayload.length() > 0 && StringCount < 30)
     {
-      // Split the string into substrings
-      String strs[30]; // buffer for string splitting
-      int StringCount = 0;
-      while (commandAnswer.length() > 0)
+      int index = commandAnswerPayload.indexOf(delimiter);
+      if (index == -1) // No separator found
       {
-        int index = commandAnswer.indexOf(delimiter);
-        if (index == -1) // No space found
-        {
-          strs[StringCount++] = commandAnswer;
-          break;
-        }
-        else
-        {
-          strs[StringCount++] = commandAnswer.substring(0, index);
-          commandAnswer = commandAnswer.substring(index + 1);
-        }
+        strs[StringCount++] = commandAnswerPayload;
+        break;
       }
+      else
+      {
+        strs[StringCount++] = commandAnswerPayload.substring(0, index);
+        commandAnswerPayload = commandAnswerPayload.substring(index + 1);
+      }
+    }
 
+    if (StringCount >= (int)(sizeof P005GS / sizeof P005GS[0]))
+    {
       for (unsigned int i = 0; i < sizeof P005GS[0] / sizeof P005GS[0][0]; i++)
       {
         if (!strs[i].isEmpty() && strcmp(P005GS[i][0], "") != 0)
@@ -377,6 +306,10 @@ bool PI_Serial::PIXX_QPIGS()
        liveData[DESCR_PV_Charging_Power] = (liveData[DESCR_PV1_Input_Power].as<unsigned short>() + liveData[DESCR_PV2_Input_Power].as<unsigned short>());
        liveData[DESCR_PV_Input_Current] = (int)((liveData[DESCR_PV_Charging_Power].as<unsigned short>() / (liveData[DESCR_PV_Input_Voltage].as<unsigned short>() + 0.5)) * 100) / 100.0;
        liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
+    }
+    else
+    {
+      get.raw.qpigs = "Wrong Field Count(" + (String)StringCount + "), Contact Dev:" + get.raw.qpigs;
     }
     return true;
   }

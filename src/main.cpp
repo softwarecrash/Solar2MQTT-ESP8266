@@ -1,4 +1,4 @@
-
+﻿
 /*
 Solar2MQTT Project
 https://github.com/softwarecrash/Solar2MQTT
@@ -12,13 +12,8 @@ https://github.com/softwarecrash/Solar2MQTT
 #include <ESPAsyncWebServer.h>
 #include "Settings.h"
 #include "html.h"
-#include "htmlProzessor.h"
+#include "favicon.h"
 #include "PI_Serial/PI_Serial.h"
-
-/* #include <AsyncMqttClient.h>
-AsyncMqttClient mqttClient;
-bool mqttswitch = true;
- */
 
 #ifdef TEMPSENS_PIN
 #include <OneWire.h>
@@ -50,7 +45,9 @@ uint8_t numOfTempSens;
 #include "status-LED.h"
 
 // new importetd
-char mqttClientId[80];
+static constexpr size_t MQTT_CLIENT_ID_LEN = DEVICE_NAME_LEN + 8;
+static constexpr size_t MQTT_TOPIC_BUFFER_LEN = MQTT_TOPIC_LEN + 128;
+char mqttClientId[MQTT_CLIENT_ID_LEN];
 ADC_MODE(ADC_VCC);
 
 // flag for saving data
@@ -58,7 +55,7 @@ unsigned long mqtttimer = 0;
 unsigned long RestartTimer = 0;
 unsigned long slowDownTimer = 0;
 bool shouldSaveConfig = false;
-char mqtt_server[40];
+char mqtt_server[MQTT_SERVER_LEN];
 bool restartNow = false;
 bool askInverterOnce = false;
 bool workerCanRun = true;
@@ -68,6 +65,27 @@ unsigned int jsonSize = 0;
 uint32_t bootcount = 0;
 String commandFromUser;
 String customResponse;
+bool loopbackRequested = false;
+bool loopbackInProgress = false;
+bool loopbackDone = false;
+bool loopbackOk = false;
+bool loopbackPrevWorker = true;
+unsigned long loopbackWaitStart = 0;
+String loopbackMessage;
+unsigned long wsCleanupTimer = 0;
+struct DebugDownloadState
+{
+  uint8_t phase = 0;
+  uint8_t headerStep = 0;
+  uint8_t rawIndex = 0;
+  uint8_t sectionIndex = 0;
+  bool sectionInit = false;
+  bool sectionHeaderPrinted = false;
+  JsonObject sectionObj;
+  JsonObject::iterator sectionIt;
+  String line;
+  size_t lineOffset = 0;
+};
 
 bool firstPublish;
 JsonDocument Json;                                           // main Json
@@ -83,64 +101,323 @@ void saveConfigCallback()
   shouldSaveConfig = true;
 }
 
-/* void notifyClients()
-{
-  if (wsClient != nullptr && wsClient->canSend())
-  {
-    size_t len = measureJson(Json);
-    AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
-    if (buffer == nullptr) {
-      writeLog("WS buffer allocation failed!");
-      return;
-    } else if (buffer)
-    {
-      assert(buffer);
-      serializeJson(Json, buffer->get(), buffer->length() + 1);
-      wsClient->text(buffer);
-    }
-    writeLog("WS data send");
-  }
-} */
-
-
 void notifyClients()
 {
-  if (wsClient != nullptr && wsClient->canSend())
+  if (ws.count() == 0)
   {
-    JsonDocument json;
-    json[F("PV_Input_Voltage")] = liveData[F("PV_Input_Voltage")];
-    json[F("PV_Input_Current")] = liveData[F("PV_Input_Current")];
-    json[F("PV_Charging_Power")] = liveData[F("PV_Charging_Power")];
-    json[F("PV2_Input_Voltage")] = liveData[F("PV2_Input_Voltage")];
-    json[F("PV2_Input_Current")] = liveData[F("PV2_Input_Current")];
-    json[F("PV2_Charging_Power")] = liveData[F("PV2_Charging_Power")];
-    json[F("AC_In_Voltage")] = liveData[F("AC_In_Voltage")];
-    json[F("AC_In_Frequenz")] = liveData[F("AC_In_Frequenz")];
-    json[F("AC_Out_Voltage")] = liveData[F("AC_Out_Voltage")];
-    json[F("AC_Out_Frequenz")] = liveData[F("AC_Out_Frequenz")];
-    json[F("AC_Out_Percent")] = liveData[F("AC_Out_Percent")];
-    json[F("Inverter_Bus_Temperature")] = liveData[F("Inverter_Bus_Temperature")];
-    json[F("Battery_Voltage")] = liveData[F("Battery_Voltage")];
-    json[F("Inverter_Bus_Temperature")] = liveData[F("Inverter_Bus_Temperature")];
-    json[F("Battery_Percent")] = liveData[F("Battery_Percent")];
-    json[F("Inverter_Operation_Mode")] = liveData[F("Inverter_Operation_Mode")];
-    json[F("Battery_Percent")] = liveData[F("Battery_Percent")];
-    json[F("Wifi_RSSI")] = WiFi.RSSI();
-    
-
-    size_t len = measureJson(json);
-    AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
-    if (buffer == nullptr) {
-      writeLog("WS buffer allocation failed!");
-      return;
-    } else if (buffer)
-    {
-      assert(buffer);
-      serializeJson(json, buffer->get(), buffer->length() + 1);
-      wsClient->text(buffer);
-    }
-    writeLog("WS data send");
+    return;
   }
+
+  char payload[512];
+  size_t pos = 0;
+  bool first = true;
+
+  auto appendComma = [&]() {
+    if (!first && pos < sizeof(payload)) {
+      payload[pos++] = ',';
+    }
+    first = false;
+  };
+
+  auto appendKey = [&](const char *key) {
+    appendComma();
+    int written = snprintf(payload + pos, sizeof(payload) - pos, "\"%s\":", key);
+    if (written <= 0) {
+      return;
+    }
+    size_t w = static_cast<size_t>(written);
+    if (w >= sizeof(payload) - pos) {
+      pos = sizeof(payload);
+    } else {
+      pos += w;
+    }
+  };
+
+  auto appendVariant = [&](const char *key, JsonVariantConst value) {
+    if (pos >= sizeof(payload)) return;
+    appendKey(key);
+    if (pos >= sizeof(payload)) return;
+    pos += serializeJson(value, payload + pos, sizeof(payload) - pos);
+  };
+
+  payload[pos++] = '{';
+  appendVariant("PV_Input_Voltage", liveData[F("PV_Input_Voltage")]);
+  appendVariant("PV_Input_Current", liveData[F("PV_Input_Current")]);
+  appendVariant("PV_Charging_Power", liveData[F("PV_Charging_Power")]);
+  appendVariant("PV2_Input_Voltage", liveData[F("PV2_Input_Voltage")]);
+  appendVariant("PV2_Input_Current", liveData[F("PV2_Input_Current")]);
+  appendVariant("PV2_Charging_Power", liveData[F("PV2_Charging_Power")]);
+  appendVariant("AC_In_Voltage", liveData[F("AC_In_Voltage")]);
+  appendVariant("AC_In_Frequenz", liveData[F("AC_In_Frequenz")]);
+  appendVariant("AC_Out_Voltage", liveData[F("AC_Out_Voltage")]);
+  appendVariant("AC_Out_Frequenz", liveData[F("AC_Out_Frequenz")]);
+  appendVariant("AC_Out_Watt", liveData[F("AC_Out_Watt")]);
+  appendVariant("AC_Out_Percent", liveData[F("AC_Out_Percent")]);
+  appendVariant("Inverter_Bus_Temperature", liveData[F("Inverter_Bus_Temperature")]);
+  appendVariant("Battery_Voltage", liveData[F("Battery_Voltage")]);
+  appendVariant("Battery_Percent", liveData[F("Battery_Percent")]);
+  appendVariant("Battery_Load", liveData[F("Battery_Load")]);
+  appendVariant("Inverter_Operation_Mode", liveData[F("Inverter_Operation_Mode")]);
+
+  appendKey("Wifi_RSSI");
+  if (pos < sizeof(payload)) {
+    int written = snprintf(payload + pos, sizeof(payload) - pos, "%d", WiFi.RSSI());
+    if (written > 0) {
+      size_t w = static_cast<size_t>(written);
+      if (w >= sizeof(payload) - pos) {
+        pos = sizeof(payload);
+      } else {
+        pos += w;
+      }
+    }
+  }
+
+  if (pos < sizeof(payload)) {
+    payload[pos++] = '}';
+  } else {
+    payload[sizeof(payload) - 1] = '}';
+    pos = sizeof(payload);
+  }
+
+  ws.textAll(payload, pos);
+}
+
+void finishLoopback(bool ok, const String &message)
+{
+  loopbackOk = ok;
+  loopbackMessage = message;
+  loopbackDone = true;
+  loopbackInProgress = false;
+  mppClient.setSuspend(false);
+  workerCanRun = loopbackPrevWorker;
+}
+
+void handleLoopback()
+{
+  if (loopbackRequested && !loopbackInProgress)
+  {
+    loopbackRequested = false;
+    loopbackInProgress = true;
+    loopbackDone = false;
+    loopbackOk = false;
+    loopbackMessage = "Running...";
+    loopbackPrevWorker = workerCanRun;
+    workerCanRun = false;
+    mppClient.setSuspend(true);
+    loopbackWaitStart = millis();
+    return;
+  }
+
+  if (!loopbackInProgress)
+  {
+    return;
+  }
+
+  if (mppClient.isBusy())
+  {
+    if (millis() - loopbackWaitStart > 5000)
+    {
+      finishLoopback(false, "Serial busy (autodetect running)");
+    }
+    return;
+  }
+
+  String details;
+  bool ok = mppClient.loopbackTest(details);
+  finishLoopback(ok, details);
+}
+
+static const char *getDebugSectionName(uint8_t index)
+{
+  switch (index)
+  {
+  case 0:
+    return "EspData";
+  case 1:
+    return "DeviceData";
+  case 2:
+    return "LiveData";
+  default:
+    return "";
+  }
+}
+
+static void buildRawLine(uint8_t index, String &line)
+{
+  line = "";
+  switch (index)
+  {
+  case 0:
+    line = "Q1: " + mppClient.get.raw.q1;
+    break;
+  case 1:
+    line = "QPIGS: " + mppClient.get.raw.qpigs;
+    break;
+  case 2:
+    line = "QPIGS2: " + mppClient.get.raw.qpigs2;
+    break;
+  case 3:
+    line = "QPIRI: " + mppClient.get.raw.qpiri;
+    break;
+  case 4:
+    line = "QT: " + mppClient.get.raw.qt;
+    break;
+  case 5:
+    line = "QET: " + mppClient.get.raw.qet;
+    break;
+  case 6:
+    line = "QEY: " + mppClient.get.raw.qey;
+    break;
+  case 7:
+    line = "QEM: " + mppClient.get.raw.qem;
+    break;
+  case 8:
+    line = "QED: " + mppClient.get.raw.qed;
+    break;
+  case 9:
+    line = "QLT: " + mppClient.get.raw.qlt;
+    break;
+  case 10:
+    line = "QLY: " + mppClient.get.raw.qly;
+    break;
+  case 11:
+    line = "QLM: " + mppClient.get.raw.qlm;
+    break;
+  case 12:
+    line = "QLD: " + mppClient.get.raw.qld;
+    break;
+  case 13:
+    line = "QPI: " + mppClient.get.raw.qpi;
+    break;
+  case 14:
+    line = "QMOD: " + mppClient.get.raw.qmod;
+    break;
+  case 15:
+    line = "QALL: " + mppClient.get.raw.qall;
+    break;
+  case 16:
+    line = "QMN: " + mppClient.get.raw.qmn;
+    break;
+  case 17:
+    line = "QPIWS: " + mppClient.get.raw.qpiws;
+    break;
+  case 18:
+    line = "QFLAG: " + mppClient.get.raw.qflag;
+    break;
+  case 19:
+    line = "CommandAnswer: " + mppClient.get.raw.commandAnswer;
+    break;
+  default:
+    break;
+  }
+  if (line.length() > 0)
+  {
+    line += "\n";
+  }
+}
+
+static bool buildNextDebugLine(DebugDownloadState &state)
+{
+  state.line = "";
+  state.lineOffset = 0;
+
+  if (state.phase == 0)
+  {
+    switch (state.headerStep)
+    {
+    case 0:
+      state.line = "Solar2MQTT Debug Data\n";
+      state.headerStep++;
+      return true;
+    case 1:
+      state.line = "Device: ";
+      state.line += settings.data.deviceName;
+      state.line += "\n";
+      state.headerStep++;
+      return true;
+    case 2:
+      state.line = "Uptime: ";
+      state.line += String(millis() / 1000);
+      state.line += " s\n";
+      state.headerStep++;
+      return true;
+    case 3:
+      state.line = "\n";
+      state.headerStep++;
+      return true;
+    case 4:
+      state.line = "[RAW]\n";
+      state.headerStep++;
+      state.phase = 1;
+      return true;
+    default:
+      state.phase = 1;
+      break;
+    }
+  }
+
+  if (state.phase == 1)
+  {
+    if (state.rawIndex < 20)
+    {
+      buildRawLine(state.rawIndex, state.line);
+      state.rawIndex++;
+      return true;
+    }
+    state.phase = 2;
+    state.sectionIndex = 0;
+    state.sectionInit = false;
+    state.sectionHeaderPrinted = false;
+    state.line = "\n[PARSED]\n";
+    return true;
+  }
+
+  while (state.phase == 2)
+  {
+    if (state.sectionIndex >= 3)
+    {
+      state.phase = 3;
+      break;
+    }
+
+    const char *sectionName = getDebugSectionName(state.sectionIndex);
+    if (!state.sectionInit)
+    {
+      state.sectionObj = Json[sectionName].as<JsonObject>();
+      state.sectionIt = state.sectionObj.begin();
+      state.sectionInit = true;
+      state.sectionHeaderPrinted = false;
+    }
+
+    if (!state.sectionHeaderPrinted)
+    {
+      state.line = "\n[";
+      state.line += sectionName;
+      state.line += "]\n";
+      state.sectionHeaderPrinted = true;
+      return true;
+    }
+
+    if (state.sectionIt == state.sectionObj.end())
+    {
+      state.sectionIndex++;
+      state.sectionInit = false;
+      continue;
+    }
+
+    JsonPair kv = *state.sectionIt;
+    ++state.sectionIt;
+
+    state.line = sectionName;
+    state.line += ".";
+    state.line += kv.key().c_str();
+    state.line += "=";
+    state.line += kv.value().as<String>();
+    state.line += "\n";
+    return true;
+  }
+
+  return false;
 }
 
 
@@ -150,7 +427,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
   AwsFrameInfo *info = (AwsFrameInfo *)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
   {
-    data[len] = 0;
+    // No null-termination: buffer size is not guaranteed to have extra space.
   }
 }
 
@@ -160,7 +437,6 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   {
   case WS_EVT_CONNECT:
     wsClient = client;
-    //getJsonData();
     notifyClients();
     break;
     case WS_EVT_PING:
@@ -173,6 +449,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     handleWebSocketMessage(arg, data, len);
     break;
   case WS_EVT_PONG:
+    break;
   case WS_EVT_ERROR:
     wsClient = nullptr;
     ws.cleanupClients(); // clean unused client connections
@@ -229,85 +506,164 @@ bool resetCounter(bool count)
 }
 
 #include <ESPAsyncWebServer.h>
-#include <memory>
 
-#define CHUNK_SIZE 512
 
-String resolveTemplate(const String& input) {
-  String result;
-  int start = 0;
+struct HtmlChunkState
+{
+  const char *chunks[3];
+  size_t chunkLengths[3];
+  uint8_t chunkIndex = 0;
+  size_t chunkOffset = 0;
+};
 
-  while (true) {
-    int open = input.indexOf('%', start);
-    if (open == -1) {
-      result += input.substring(start);
-      break;
+static void appendJsonString(String &out, const char *value)
+{
+  out += '"';
+  if (value != nullptr)
+  {
+    for (const char *p = value; *p != '\0'; ++p)
+    {
+      char c = *p;
+      switch (c)
+      {
+      case '\\':
+      case '"':
+        out += '\\';
+        out += c;
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        out += c;
+        break;
+      }
     }
-
-    int close = input.indexOf('%', open + 1);
-    if (close == -1) {
-      result += input.substring(start);
-      break;
-    }
-
-    result += input.substring(start, open);
-    String varName = input.substring(open + 1, close);
-    result += htmlProcessor(varName);
-    start = close + 1;
   }
-
-  return result;
+  out += '"';
 }
 
-void sendChunkedHtmlPage(AsyncWebServerRequest *request, const char *htmlBodyPROGMEM) {
-  const char *chunks[3] = { HTML_HEAD, htmlBodyPROGMEM, HTML_FOOT };
+void sendChunkedHtmlPage(AsyncWebServerRequest *request, const char *htmlBodyPROGMEM)
+{
+  HtmlChunkState *state = new HtmlChunkState;
+  if (!state)
+  {
+    request->send(503, "text/plain", "Out of memory");
+    return;
+  }
+  state->chunks[0] = HTML_HEAD;
+  state->chunks[1] = htmlBodyPROGMEM;
+  state->chunks[2] = HTML_FOOT;
+  state->chunkLengths[0] = strlen_P(HTML_HEAD);
+  state->chunkLengths[1] = strlen_P(htmlBodyPROGMEM);
+  state->chunkLengths[2] = strlen_P(HTML_FOOT);
 
-  auto chunkData = std::make_shared<std::array<const char*, 3>>();
-  (*chunkData)[0] = chunks[0];
-  (*chunkData)[1] = chunks[1];
-  (*chunkData)[2] = chunks[2];
+  request->onDisconnect([state]()
+                        { delete state; });
 
-  auto state = std::make_shared<std::pair<int, size_t>>(0, 0);
+  AsyncWebServerResponse *response = request->beginChunkedResponse(
+      "text/html",
+      [state](uint8_t *buffer, size_t maxLen, size_t) -> size_t
+      {
+        while (state->chunkIndex < 3)
+        {
+          const char *chunk = state->chunks[state->chunkIndex];
+          size_t totalLen = state->chunkLengths[state->chunkIndex];
 
-  auto tempBuf = std::make_shared<String>();
+          if (state->chunkOffset >= totalLen)
+          {
+            state->chunkIndex++;
+            state->chunkOffset = 0;
+            continue;
+          }
 
-  AsyncWebServerResponse *response = request->beginChunkedResponse("text/html",
-    [chunkData, state, tempBuf](uint8_t *buffer, size_t maxLen, size_t) -> size_t {
-      while (state->first < 3) {
-        const char *chunk = (*chunkData)[state->first];
-        size_t totalLen = strlen_P(chunk);
+          size_t copyLen = totalLen - state->chunkOffset;
+          if (copyLen > maxLen)
+            copyLen = maxLen;
 
-        if (state->second >= totalLen) {
-          state->first++;
-          state->second = 0;
-          continue;
+          for (size_t i = 0; i < copyLen; ++i)
+          {
+            buffer[i] = static_cast<uint8_t>(pgm_read_byte(chunk + state->chunkOffset + i));
+          }
+          state->chunkOffset += copyLen;
+          return copyLen;
         }
 
-        tempBuf->clear();
-        size_t copyLen = totalLen - state->second;
-        if (copyLen > CHUNK_SIZE) copyLen = CHUNK_SIZE;
-
-        for (size_t i = 0; i < copyLen; ++i) {
-          char c = pgm_read_byte(chunk + state->second + i);
-          *tempBuf += c;
-        }
-
-        String processed = resolveTemplate(*tempBuf);
-
-        size_t sendLen = processed.length();
-        if (sendLen > maxLen) sendLen = maxLen;
-        memcpy(buffer, processed.c_str(), sendLen);
-
-        state->second += copyLen;
-
-        return sendLen;
-      }
-
-      return 0;
-    });
+        return 0;
+      });
 
   response->setContentLength(0);
   request->send(response);
+}
+
+void sendMetaJson(AsyncWebServerRequest *request)
+{
+  size_t estimate = 128 + strlen(settings.data.deviceName) + strlen(SOFTWARE_VERSION) + strlen(SWVERSION);
+  String json;
+  json.reserve(estimate);
+  json += '{';
+  json += "\"device_name\":";
+  appendJsonString(json, settings.data.deviceName);
+  json += ",\"software_version\":";
+  appendJsonString(json, SOFTWARE_VERSION);
+  json += ",\"sw_version\":";
+  appendJsonString(json, SWVERSION);
+  json += ",\"dark_mode\":";
+  json += settings.data.webUIdarkmode ? "true" : "false";
+  json += ",\"flash_size\":";
+  json += ESP.getFreeSketchSpace();
+  json += '}';
+  request->send(200, "application/json", json);
+}
+
+void sendConfigJson(AsyncWebServerRequest *request)
+{
+  size_t estimate = 256 +
+                    strlen(settings.data.deviceName) +
+                    strlen(settings.data.mqttServer) +
+                    strlen(settings.data.mqttUser) +
+                    strlen(settings.data.mqttPassword) +
+                    strlen(settings.data.mqttTopic) +
+                    strlen(settings.data.mqttTriggerPath) +
+                    strlen(settings.data.httpUser) +
+                    strlen(settings.data.httpPass);
+  String json;
+  json.reserve(estimate);
+  json += '{';
+  json += "\"device_name\":";
+  appendJsonString(json, settings.data.deviceName);
+  json += ",\"mqtt_server\":";
+  appendJsonString(json, settings.data.mqttServer);
+  json += ",\"mqtt_port\":";
+  json += settings.data.mqttPort;
+  json += ",\"mqtt_user\":";
+  appendJsonString(json, settings.data.mqttUser);
+  json += ",\"mqtt_password\":";
+  appendJsonString(json, settings.data.mqttPassword);
+  json += ",\"mqtt_topic\":";
+  appendJsonString(json, settings.data.mqttTopic);
+  json += ",\"mqtt_refresh\":";
+  json += settings.data.mqttRefresh;
+  json += ",\"mqtt_trigger\":";
+  appendJsonString(json, settings.data.mqttTriggerPath);
+  json += ",\"mqtt_json\":";
+  json += settings.data.mqttJson ? "true" : "false";
+  json += ",\"ha_discovery\":";
+  json += settings.data.haDiscovery ? "true" : "false";
+  json += ",\"webui_dark_mode\":";
+  json += settings.data.webUIdarkmode ? "true" : "false";
+  json += ",\"http_user\":";
+  appendJsonString(json, settings.data.httpUser);
+  json += ",\"http_pass\":";
+  appendJsonString(json, settings.data.httpPass);
+  json += '}';
+  request->send(200, "application/json", json);
 }
 
 
@@ -316,8 +672,6 @@ void sendChunkedHtmlPage(AsyncWebServerRequest *request, const char *htmlBodyPRO
 
 void setup()
 {
-  // make a compatibility mode for some crap routers?
-  // WiFi.setPhyMode(WIFI_PHY_MODE_11G);
   analogWrite(LED_PIN, 0);
 #ifdef isUART_HARDWARE
   analogWrite(LED_COM, 0);
@@ -329,25 +683,26 @@ void setup()
   settings.load();
   WiFi.persistent(true); // fix wifi save bug
   WiFi.hostname(settings.data.deviceName);
+  WiFi.setAutoReconnect(true);
+  WiFi.setAutoConnect(true);
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
   AsyncWiFiManager wm(&server, &dns);
-  sprintf(mqttClientId, "%s-%06X", settings.data.deviceName, ESP.getChipId());
+  snprintf(mqttClientId, sizeof(mqttClientId), "%s-%06X", settings.data.deviceName, ESP.getChipId());
 
 
 
   wm.setMinimumSignalQuality(20); // filter weak wifi signals
-  // wm.setConnectTimeout(15);       // how long to try to connect for before continuing
-  // wm.setConfigPortalTimeout(120); // auto close configportal after n seconds
   wm.setSaveConfigCallback(saveConfigCallback);
 
   // create custom wifimanager fields
 
-  AsyncWiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT server", NULL, 40);
-  AsyncWiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT User", NULL, 40);
-  AsyncWiFiManagerParameter custom_mqtt_pass("mqtt_pass", "MQTT Password", NULL, 40);
-  AsyncWiFiManagerParameter custom_mqtt_topic("mqtt_topic", "MQTT Topic", "Solar01", 40);
+  AsyncWiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT server", NULL, MQTT_SERVER_LEN - 1);
+  AsyncWiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT User", NULL, MQTT_USER_LEN - 1);
+  AsyncWiFiManagerParameter custom_mqtt_pass("mqtt_pass", "MQTT Password", NULL, MQTT_PASS_LEN - 1);
+  AsyncWiFiManagerParameter custom_mqtt_topic("mqtt_topic", "MQTT Topic", "Solar01", MQTT_TOPIC_LEN - 1);
   AsyncWiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT Port", "1883", 6);
   AsyncWiFiManagerParameter custom_mqtt_refresh("mqtt_refresh", "MQTT Send Interval", "300", 4);
-  AsyncWiFiManagerParameter custom_device_name("device_name", "Device Name", "Solar2MQTT", 40);
+  AsyncWiFiManagerParameter custom_device_name("device_name", "Device Name", "Solar2MQTT", DEVICE_NAME_LEN - 1);
 
   wm.addParameter(&custom_mqtt_server);
   wm.addParameter(&custom_mqtt_user);
@@ -359,19 +714,22 @@ void setup()
 
   wm.setDebugOutput(false);       // disable wifimanager debug output
   wm.setMinimumSignalQuality(20); // filter weak wifi signals
-  // wm.setConnectTimeout(15);       // how long to try to connect for before continuing
-  // wm.setConfigPortalTimeout(120); // auto close configportal after n seconds
   wm.setSaveConfigCallback(saveConfigCallback);
   // save settings if wifi setup is fire up
   bool apRunning = wm.autoConnect("Solar2MQTT-AP");
   if (shouldSaveConfig)
   {
-    strncpy(settings.data.mqttServer, custom_mqtt_server.getValue(), 40);
-    strncpy(settings.data.mqttUser, custom_mqtt_user.getValue(), 40);
-    strncpy(settings.data.mqttPassword, custom_mqtt_pass.getValue(), 40);
+    strncpy(settings.data.mqttServer, custom_mqtt_server.getValue(), sizeof(settings.data.mqttServer) - 1);
+    settings.data.mqttServer[sizeof(settings.data.mqttServer) - 1] = '\0';
+    strncpy(settings.data.mqttUser, custom_mqtt_user.getValue(), sizeof(settings.data.mqttUser) - 1);
+    settings.data.mqttUser[sizeof(settings.data.mqttUser) - 1] = '\0';
+    strncpy(settings.data.mqttPassword, custom_mqtt_pass.getValue(), sizeof(settings.data.mqttPassword) - 1);
+    settings.data.mqttPassword[sizeof(settings.data.mqttPassword) - 1] = '\0';
     settings.data.mqttPort = atoi(custom_mqtt_port.getValue());
-    strncpy(settings.data.deviceName, custom_device_name.getValue(), 40);
-    strncpy(settings.data.mqttTopic, custom_mqtt_topic.getValue(), 40);
+    strncpy(settings.data.deviceName, custom_device_name.getValue(), sizeof(settings.data.deviceName) - 1);
+    settings.data.deviceName[sizeof(settings.data.deviceName) - 1] = '\0';
+    strncpy(settings.data.mqttTopic, custom_mqtt_topic.getValue(), sizeof(settings.data.mqttTopic) - 1);
+    settings.data.mqttTopic[sizeof(settings.data.mqttTopic) - 1] = '\0';
     settings.data.mqttRefresh = atoi(custom_mqtt_refresh.getValue());
     settings.save();
     ESP.restart();
@@ -387,8 +745,7 @@ void setup()
     server.on("/old", HTTP_GET, [](AsyncWebServerRequest *request)
               {
               if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-              AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_MAIN, htmlProcessor);
-              request->send(response); });
+              sendChunkedHtmlPage(request, HTML_MAIN); });
 
 
 
@@ -404,19 +761,33 @@ void setup()
                 serializeJson(Json, *response);
                 request->send(response); });
 
+    server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                AsyncWebServerResponse *response = request->beginResponse_P(200, "image/x-icon", favicon_ico, sizeof(favicon_ico));
+                response->addHeader("Cache-Control", "public, max-age=604800");
+                request->send(response); });
+
+    server.on("/meta", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+                sendMetaJson(request); });
+
+    server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+                sendConfigJson(request); });
+
     server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                 if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_REBOOT, htmlProcessor);
-                request->send(response);
+                sendChunkedHtmlPage(request, HTML_REBOOT);
                 restartNow = true;
                 RestartTimer = millis(); });
 
     server.on("/confirmreset", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                 if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_CONFIRM_RESET, htmlProcessor);
-                request->send(response); });
+                sendChunkedHtmlPage(request, HTML_CONFIRM_RESET); });
     server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                 if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
@@ -429,42 +800,37 @@ void setup()
                 ESP.eraseConfig();
                 ESP.restart(); });
 
-/*     server.on("/settingsedit", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-                if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_SETTINGS_EDIT, htmlProcessor);
-                request->send(response); }); */
+    server.on("/settingsedit", HTTP_GET, [](AsyncWebServerRequest *request) {
+      if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+      sendChunkedHtmlPage(request, HTML_SETTINGS_EDIT);});
 
-                server.on("/settingsedit", HTTP_GET, [](AsyncWebServerRequest *request) {
-                  if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                  sendChunkedHtmlPage(request, HTML_SETTINGS_EDIT);});
-
-/*     server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-                if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_SETTINGS, htmlProcessor);
-                request->send(response); }); */
-
-                server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
-                  if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                  sendChunkedHtmlPage(request, HTML_SETTINGS);});
-
+    server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
+      if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+      sendChunkedHtmlPage(request, HTML_SETTINGS);});
 
     server.on("/settingssave", HTTP_POST, [](AsyncWebServerRequest *request)
               {
                 if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                strncpy(settings.data.mqttServer, request->arg("post_mqttServer").c_str(), 40);
+                strncpy(settings.data.mqttServer, request->arg("post_mqttServer").c_str(), sizeof(settings.data.mqttServer) - 1);
+                settings.data.mqttServer[sizeof(settings.data.mqttServer) - 1] = '\0';
                 settings.data.mqttPort = request->arg("post_mqttPort").toInt();
-                strncpy(settings.data.mqttUser, request->arg("post_mqttUser").c_str(), 40);
-                strncpy(settings.data.mqttPassword, request->arg("post_mqttPassword").c_str(), 40);
-                strncpy(settings.data.mqttTopic, request->arg("post_mqttTopic").c_str(), 40);
+                strncpy(settings.data.mqttUser, request->arg("post_mqttUser").c_str(), sizeof(settings.data.mqttUser) - 1);
+                settings.data.mqttUser[sizeof(settings.data.mqttUser) - 1] = '\0';
+                strncpy(settings.data.mqttPassword, request->arg("post_mqttPassword").c_str(), sizeof(settings.data.mqttPassword) - 1);
+                settings.data.mqttPassword[sizeof(settings.data.mqttPassword) - 1] = '\0';
+                strncpy(settings.data.mqttTopic, request->arg("post_mqttTopic").c_str(), sizeof(settings.data.mqttTopic) - 1);
+                settings.data.mqttTopic[sizeof(settings.data.mqttTopic) - 1] = '\0';
                 settings.data.mqttRefresh = request->arg("post_mqttRefresh").toInt() < 1 ? 1 : request->arg("post_mqttRefresh").toInt(); // prevent lower numbers
-                strncpy(settings.data.deviceName, request->arg("post_deviceName").c_str(), 40);
+                strncpy(settings.data.deviceName, request->arg("post_deviceName").c_str(), sizeof(settings.data.deviceName) - 1);
+                settings.data.deviceName[sizeof(settings.data.deviceName) - 1] = '\0';
                 settings.data.mqttJson = (request->arg("post_mqttjson") == "true") ? true : false;
-                strncpy(settings.data.mqttTriggerPath, request->arg("post_mqtttrigger").c_str(), 80);
+                strncpy(settings.data.mqttTriggerPath, request->arg("post_mqtttrigger").c_str(), sizeof(settings.data.mqttTriggerPath) - 1);
+                settings.data.mqttTriggerPath[sizeof(settings.data.mqttTriggerPath) - 1] = '\0';
                 settings.data.webUIdarkmode = (request->arg("post_webuicolormode") == "true") ? true : false;
-                strncpy(settings.data.httpUser, request->arg("post_httpUser").c_str(), 40);
-                strncpy(settings.data.httpPass, request->arg("post_httpPass").c_str(), 40);
+                strncpy(settings.data.httpUser, request->arg("post_httpUser").c_str(), sizeof(settings.data.httpUser) - 1);
+                settings.data.httpUser[sizeof(settings.data.httpUser) - 1] = '\0';
+                strncpy(settings.data.httpPass, request->arg("post_httpPass").c_str(), sizeof(settings.data.httpPass) - 1);
+                settings.data.httpPass[sizeof(settings.data.httpPass) - 1] = '\0';
                 settings.data.haDiscovery = (request->arg("post_hadiscovery") == "true") ? true : false;
                 settings.save();
                 request->redirect("/reboot"); });
@@ -481,6 +847,85 @@ void setup()
                     haDiscTrigger = true;
                 }
                 request->send(200, "text/plain", "message received"); });
+
+    server.on("/debug/loopback-test", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+                if (loopbackInProgress || loopbackRequested) {
+                  request->send(409, "application/json", "{\"started\":false,\"message\":\"Loopback already running\"}");
+                  return;
+                }
+                loopbackRequested = true;
+                loopbackDone = false;
+                loopbackMessage = "Loopback started";
+                request->send(202, "application/json", "{\"started\":true,\"message\":\"Loopback started\"}"); });
+
+    server.on("/debug/loopback-status", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+                String payload = String("{\"running\":") + (loopbackInProgress ? "true" : "false") +
+                                 ",\"done\":" + (loopbackDone ? "true" : "false") +
+                                 ",\"ok\":" + (loopbackOk ? "true" : "false") +
+                                 ",\"message\":\"" + loopbackMessage + "\"}";
+                request->send(200, "application/json", payload); });
+
+    server.on("/debug/download", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+
+                bool prevWorkerCanRun = workerCanRun;
+                workerCanRun = false;
+                mppClient.setSuspend(true);
+
+                auto cleanup = [prevWorkerCanRun]() {
+                  mppClient.setSuspend(false);
+                  workerCanRun = prevWorkerCanRun;
+                };
+                request->onDisconnect(cleanup);
+
+                auto state = std::make_shared<DebugDownloadState>();
+
+                AsyncWebServerResponse *response = request->beginChunkedResponse(
+                  "text/plain",
+                  [state](uint8_t *buffer, size_t maxLen, size_t) -> size_t {
+                    size_t written = 0;
+                    while (written < maxLen)
+                    {
+                      if (state->lineOffset >= state->line.length())
+                      {
+                        if (!buildNextDebugLine(*state))
+                        {
+                          break;
+                        }
+                      }
+
+                      size_t available = state->line.length() - state->lineOffset;
+                      size_t toCopy = maxLen - written;
+                      if (toCopy > available)
+                      {
+                        toCopy = available;
+                      }
+
+                      memcpy(buffer + written, state->line.c_str() + state->lineOffset, toCopy);
+                      state->lineOffset += toCopy;
+                      written += toCopy;
+                    }
+
+                    return written;
+                  });
+
+                response->addHeader("Content-Disposition", "attachment; filename=\"solar2mqtt-debug.txt\"");
+                response->addHeader("Cache-Control", "no-store");
+                response->addHeader("Pragma", "no-cache");
+                response->addHeader("Connection", "close");
+                request->send(response); });
+
+    auto &debugHandler = server.on("/debug", HTTP_GET, [](AsyncWebServerRequest *request) {
+                  if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
+                  sendChunkedHtmlPage(request, HTML_DEBUG);});
+    debugHandler.setFilter([](AsyncWebServerRequest *request) {
+                  return request->url() == "/debug";
+                });
 
     server.on(
         "/update", HTTP_POST, [](AsyncWebServerRequest *request)
@@ -571,6 +1016,12 @@ void setup()
 void loop()
 {
   MDNS.update();
+  handleLoopback();
+  if (millis() - wsCleanupTimer > 5000)
+  {
+    ws.cleanupClients();
+    wsCleanupTimer = millis();
+  }
   if (Update.isRunning())
   {
     workerCanRun = false; // lockout, atfer true need reboot
@@ -580,8 +1031,6 @@ void loop()
     // Make sure wifi is in the right mode
     if (WiFi.status() == WL_CONNECTED)
     { 
-      //for testing only
-      //Serial.println(ESP.getFreeHeap());
       // No use going to next step unless WIFI is up and running.
       if (commandFromUser != "")
       {
@@ -620,7 +1069,6 @@ void loop()
       tempSens.update();
 #endif
 
-      //ws.cleanupClients(); // clean unused client connections
       mppClient.loop();    // Call the PI Serial Library loop
       mqttclient.loop();
       if ((haDiscTrigger || settings.data.haDiscovery) && measureJson(Json) > jsonSize)
@@ -648,7 +1096,7 @@ bool prozessData()
   }
   writeLog("ProzessData P:%s C:%s", (String)mppClient.protocol, (String)mppClient.connection);
   getJsonData();
-  if (wsClient != nullptr && wsClient->canSend())
+  if (ws.count() > 0)
   {
     notifyClients();
   }
@@ -659,7 +1107,6 @@ bool prozessData()
 #endif
 
     sendtoMQTT(); // Update data to MQTT server if we should
-    //sendtoMQTTasync(); //async mqtt
     mqtttimer = millis();
   }
 
@@ -669,19 +1116,12 @@ bool prozessData()
 
 void getJsonData()
 {
-/*   
-  for testing only
-  liveData[F("PV_Input_Voltage")] = 230;
-  liveData[F("Battery_Percent")] = 80; */
-
   deviceJson[F("Device_name")] = settings.data.deviceName;
   deviceJson[F("ESP_VCC")] = ESP.getVcc() / 1000.0;
   deviceJson[F("Wifi_RSSI")] = WiFi.RSSI();
   deviceJson[F("sw_version")] = SOFTWARE_VERSION;
   deviceJson[F("Free_Heap")] = ESP.getFreeHeap();
   deviceJson[F("HEAP_Fragmentation")] = ESP.getHeapFragmentation();
-  // deviceJson[F("json_memory_usage")] = Json.memoryUsage();
-  // deviceJson[F("json_capacity")] = Json.capacity();
   deviceJson[F("runtime")] = millis() / 1000;
   deviceJson[F("ws_clients")] = ws.count();
   deviceJson[F("detect_protocol")] = mppClient.protocol;
@@ -700,10 +1140,7 @@ void getJsonData()
 char *topicBuilder(char *buffer, char const *path, char const *numering = "")
 {                                                  // buffer, topic
   const char *mainTopic = settings.data.mqttTopic; // get the main topic path
-  strcpy(buffer, mainTopic);
-  strcat(buffer, "/");
-  strcat(buffer, path);
-  strcat(buffer, numering);
+  snprintf(buffer, MQTT_TOPIC_BUFFER_LEN, "%s/%s%s", mainTopic, path, numering);
   return buffer;
 }
 
@@ -711,7 +1148,7 @@ bool connectMQTT()
 {
   if (strcmp(settings.data.mqttServer, "") == 0)
     return false;
-  char buff[128];
+  char buff[MQTT_TOPIC_BUFFER_LEN];
   if (!mqttclient.connected())
   {
     firstPublish = false;
@@ -741,45 +1178,30 @@ bool connectMQTT()
 
 bool sendtoMQTT()
 {
-  char buff[128]; // temp buffer for the topic string
+  char buff[MQTT_TOPIC_BUFFER_LEN]; // temp buffer for the topic string
   if (!connectMQTT())
   {
-    writeLog("No connection to MQTT Server: ", mqttclient.state());
+    writeLog("No connection to MQTT Server: %d", mqttclient.state());
     firstPublish = false;
     return false;
   }
   if (!settings.data.mqttJson)
   {
-    char msgBuffer1[128];
+    char msgBuffer1[MQTT_TOPIC_BUFFER_LEN];
     for (JsonPair jsonDev : Json.as<JsonObject>())
     {
       for (JsonPair jsondat : jsonDev.value().as<JsonObject>())
       {
-        sprintf(msgBuffer1, "%s/%s/%s", settings.data.mqttTopic, jsonDev.key().c_str(), jsondat.key().c_str());
+        snprintf(msgBuffer1, sizeof(msgBuffer1), "%s/%s/%s", settings.data.mqttTopic, jsonDev.key().c_str(), jsondat.key().c_str());
         mqttclient.publish(msgBuffer1, jsondat.value().as<String>().c_str());
       }
     }
     if (mppClient.get.raw.commandAnswer.length() > 0)
     {
       mqttclient.publish((String(settings.data.mqttTopic) + String("/DeviceControl/Set_Command_answer")).c_str(), (mppClient.get.raw.commandAnswer).c_str());
-      writeLog("raw command answer: ", mppClient.get.raw.commandAnswer);
+      writeLog("raw command answer: %s", mppClient.get.raw.commandAnswer.c_str());
       mppClient.get.raw.commandAnswer = "";
     }
-    /* #ifdef TEMPSENS_PIN
-        for (int i = 0; i < numOfTempSens; i++)
-        {
-          if (tempSens.getAddress(tempDeviceAddress, i))
-          {
-            float tempC = tempSens.getTempC(tempDeviceAddress);
-            if (tempC != DEVICE_DISCONNECTED_C)
-            {
-              char valBuffer[8];
-              sprintf(msgBuffer1, "%s/DS18B20_%i", settings.data.mqttTopic, (i + 1));
-              mqttclient.publish(msgBuffer1, dtostrf(tempC, 4, 1, valBuffer));
-            }
-          }
-        }
-    #endif */
     // RAW
     mqttclient.publish(topicBuilder(buff, "RAW/Q1"), (mppClient.get.raw.q1).c_str());
     mqttclient.publish(topicBuilder(buff, "RAW/QPIGS"), (mppClient.get.raw.qpigs).c_str());
@@ -790,7 +1212,7 @@ bool sendtoMQTT()
     mqttclient.publish(topicBuilder(buff, "RAW/QEY"), (mppClient.get.raw.qey).c_str());
     mqttclient.publish(topicBuilder(buff, "RAW/QEM"), (mppClient.get.raw.qem).c_str());
     mqttclient.publish(topicBuilder(buff, "RAW/QED"), (mppClient.get.raw.qed).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QLT"), (mppClient.get.raw.qt).c_str());
+    mqttclient.publish(topicBuilder(buff, "RAW/QLT"), (mppClient.get.raw.qlt).c_str());
     mqttclient.publish(topicBuilder(buff, "RAW/QLY"), (mppClient.get.raw.qly).c_str());
     mqttclient.publish(topicBuilder(buff, "RAW/QLM"), (mppClient.get.raw.qlm).c_str());
     mqttclient.publish(topicBuilder(buff, "RAW/QLD"), (mppClient.get.raw.qld).c_str());
@@ -806,6 +1228,18 @@ bool sendtoMQTT()
     mqttclient.beginPublish(topicBuilder(buff, "Data"), measureJson(Json), false);
     serializeJson(Json, mqttclient);
     mqttclient.endPublish();
+    if (settings.data.haDiscovery || haDiscTrigger)
+    {
+      char msgBuffer1[MQTT_TOPIC_BUFFER_LEN];
+      for (JsonPair jsonDev : Json.as<JsonObject>())
+      {
+        for (JsonPair jsondat : jsonDev.value().as<JsonObject>())
+        {
+          snprintf(msgBuffer1, sizeof(msgBuffer1), "%s/%s/%s", settings.data.mqttTopic, jsonDev.key().c_str(), jsondat.key().c_str());
+          mqttclient.publish(msgBuffer1, jsondat.value().as<String>().c_str());
+        }
+      }
+    }
   }
   mqttclient.publish(topicBuilder(buff, "Alive"), "true", true); // LWT online message must be retained!
   mqttclient.publish(topicBuilder(buff, "EspData/Wifi_RSSI"), String(WiFi.RSSI()).c_str());
@@ -817,7 +1251,7 @@ bool sendtoMQTT()
 
 void mqttcallback(char *top, unsigned char *payload, unsigned int length)
 {
-  char buff[128];
+  char buff[MQTT_TOPIC_BUFFER_LEN];
   String messageTemp;
   for (unsigned int i = 0; i < length; i++)
   {
@@ -835,7 +1269,7 @@ void mqttcallback(char *top, unsigned char *payload, unsigned int length)
   // send raw control command
   if (strcmp(top, topicBuilder(buff, "DeviceControl/Set_Command")) == 0 && messageTemp.length() > 0)
   {
-    writeLog("Command recived: ", messageTemp);
+    writeLog("Command received: %s", messageTemp.c_str());
     commandFromUser = messageTemp;
   }
 }
@@ -855,7 +1289,7 @@ bool sendHaDiscovery()
                                "\"sw\":\"" + SOFTWARE_VERSION + "\"" +
                                "}";
 
-  char topBuff[128];
+  char topBuff[MQTT_TOPIC_BUFFER_LEN];
   for (size_t i = 0; i < sizeof haStaticDescriptor / sizeof haStaticDescriptor[0]; i++)
   {
     if (staticData[haStaticDescriptor[i][0]].is<JsonVariant>())
@@ -874,7 +1308,7 @@ bool sendHaDiscovery()
         haPayLoad += (String) "\"dev_cla\":\"" + haStaticDescriptor[i][3] + "\",";
       haPayLoad += haDeviceDescription;
       haPayLoad += "}";
-      sprintf(topBuff, "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, haStaticDescriptor[i][0]); // build the topic
+      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, haStaticDescriptor[i][0]); // build the topic
       mqttclient.beginPublish(topBuff, haPayLoad.length(), true);
       for (size_t i = 0; i < haPayLoad.length(); i++)
       {
@@ -902,7 +1336,7 @@ bool sendHaDiscovery()
         haPayLoad += (String) "\"dev_cla\":\"" + haLiveDescriptor[i][3] + "\",";
       haPayLoad += haDeviceDescription;
       haPayLoad += "}";
-      sprintf(topBuff, "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, haLiveDescriptor[i][0]); // build the topic
+      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, haLiveDescriptor[i][0]); // build the topic
       mqttclient.beginPublish(topBuff, haPayLoad.length(), true);
       for (size_t i = 0; i < haPayLoad.length(); i++)
       {
@@ -938,7 +1372,7 @@ bool sendHaDiscovery()
                          "\"dev_cla\":\"temperature\",";
       haPayLoad += haDeviceDescription;
       haPayLoad += "}";
-      sprintf(topBuff, "homeassistant/sensor/%s/DS18B20_%d/config", settings.data.mqttTopic, (i + 1)); // build the topic
+      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/DS18B20_%d/config", settings.data.mqttTopic, (i + 1)); // build the topic
 
       mqttclient.beginPublish(topBuff, haPayLoad.length(), true);
       for (size_t i = 0; i < haPayLoad.length(); i++)
@@ -957,7 +1391,7 @@ void handleTemperatureChange(int deviceIndex, int32_t temperatureRAW)
   #ifdef TEMPSENS_PIN
   writeLog("<DS18x> DS18B20_%d RAW:%d Celsius:%f Fahrenheit:%f", deviceIndex + 1, temperatureRAW, tempSens.rawToCelsius(temperatureRAW), tempSens.rawToFahrenheit(temperatureRAW));
   char msgBuffer[32];
-  char buff[128]; // temp buffer for the topic string
+  char buff[MQTT_TOPIC_BUFFER_LEN]; // temp buffer for the topic string
   mqttclient.publish(topicBuilder(buff, "DS18B20_", itoa((deviceIndex) + 1, msgBuffer, 10)), dtostrf(tempSens.rawToCelsius(temperatureRAW), 4, 2, msgBuffer));
 #endif
 }
@@ -973,5 +1407,9 @@ void writeLog(const char *format, ...)
 
   // write msg to the log
   DBG_PRINTLN(msg);
-  DBG_WEB(msg);
+  if (webSerial.getConnectionCount() > 0)
+  {
+    DBG_WEB(msg);
+  }
 }
+
