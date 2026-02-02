@@ -26,6 +26,27 @@ PI_Serial::PI_Serial(int rx, int tx)
 {
     this->my_serialIntf = new SoftwareSerial(rx, tx, false); // init pins
     serialIntfBaud = 2400;
+    get.raw.qpi.reserve(8);
+    get.raw.qall.reserve(80);
+    get.raw.qpiri.reserve(96);
+    get.raw.qmn.reserve(48);
+    get.raw.qflag.reserve(24);
+    get.raw.q1.reserve(64);
+    get.raw.qpigs.reserve(96);
+    get.raw.qpigs2.reserve(24);
+    get.raw.qmod.reserve(8);
+    get.raw.qt.reserve(12);
+    get.raw.qet.reserve(12);
+    get.raw.qey.reserve(12);
+    get.raw.qem.reserve(12);
+    get.raw.qed.reserve(12);
+    get.raw.qlt.reserve(12);
+    get.raw.qly.reserve(12);
+    get.raw.qlm.reserve(12);
+    get.raw.qld.reserve(12);
+    get.raw.commandAnswer.reserve(96);
+    get.raw.qpiws.reserve(48);
+    customCommandBuffer.reserve(32);
 }
 
 bool PI_Serial::Init()
@@ -312,6 +333,7 @@ String PI_Serial::requestData(String command)
 {
 
     String commandBuffer = "";
+    commandBuffer.reserve(128);
     uint16_t crcCalc = 0;
     uint16_t crcRecive = 0;
 
@@ -328,35 +350,37 @@ String PI_Serial::requestData(String command)
     commandBuffer = this->my_serialIntf->readStringUntil('\r');
     this->my_serialIntf->enableTx(false);
 
-    if (commandBuffer.length() >= 3 &&
-        getCRC(commandBuffer.substring(0, commandBuffer.length() - 2)) == 256U * (uint8_t)commandBuffer[commandBuffer.length() - 2] + (uint8_t)commandBuffer[commandBuffer.length() - 1] &&
-        getCRC(commandBuffer.substring(0, commandBuffer.length() - 2)) != 0 && 256U * (uint8_t)commandBuffer[commandBuffer.length() - 2] + (uint8_t)commandBuffer[commandBuffer.length() - 1] != 0)
+    const size_t cbLen = commandBuffer.length();
+    const char *cbBuf = commandBuffer.c_str();
+    if (cbLen >= 3 &&
+        getCRC(cbBuf, cbLen - 2) == 256U * (uint8_t)commandBuffer[cbLen - 2] + (uint8_t)commandBuffer[cbLen - 1] &&
+        getCRC(cbBuf, cbLen - 2) != 0 && 256U * (uint8_t)commandBuffer[cbLen - 2] + (uint8_t)commandBuffer[cbLen - 1] != 0)
     {
-        crcCalc = 256U * (uint8_t)commandBuffer[commandBuffer.length() - 2] + (uint8_t)commandBuffer[commandBuffer.length() - 1];
-        crcRecive = getCRC(commandBuffer.substring(0, commandBuffer.length() - 2));
-        commandBuffer.remove(commandBuffer.length() - 2); // remove the crc
+        crcCalc = 256U * (uint8_t)commandBuffer[cbLen - 2] + (uint8_t)commandBuffer[cbLen - 1];
+        crcRecive = getCRC(cbBuf, cbLen - 2);
+        commandBuffer.remove(cbLen - 2); // remove the crc
         commandBuffer.remove(0, strlen(startChar));       // remove the start char ( for Pi30 and ^Dxxx for Pi18
 
         // requestOK++;
         connectionCounter = 0;
     }
-    else if (commandBuffer.length() >= 2 &&
-             getCHK(commandBuffer.substring(0, commandBuffer.length() - 1)) + 1 == commandBuffer[commandBuffer.length() - 1] &&
-             getCHK(commandBuffer.substring(0, commandBuffer.length() - 1)) + 1 != 0 && commandBuffer[commandBuffer.length() - 1] != 0 &&
+    else if (cbLen >= 2 &&
+             getCHK(cbBuf, cbLen - 1) + 1 == commandBuffer[cbLen - 1] &&
+             getCHK(cbBuf, cbLen - 1) + 1 != 0 && commandBuffer[cbLen - 1] != 0 &&
              command == "QALL" // crude fix for the qall chk thing
              )                 // CHK for QALL
     {
-        crcCalc = getCHK(commandBuffer.substring(0, commandBuffer.length() - 1)) + 1;
-        crcRecive = commandBuffer[commandBuffer.length() - 1];
-        commandBuffer.remove(commandBuffer.length() - 1); // remove the crc
+        crcCalc = getCHK(cbBuf, cbLen - 1) + 1;
+        crcRecive = commandBuffer[cbLen - 1];
+        commandBuffer.remove(cbLen - 1); // remove the crc
         commandBuffer.remove(0, strlen(startChar));       // remove the start char ( for Pi30 and ^Dxxx for Pi18
 
         // requestOK++;
         connectionCounter = 0;
     }
     else if (commandBuffer == "NAK" ||
-             (commandBuffer.length() >= (strlen(startChar) + 3) &&
-              commandBuffer.substring(strlen(startChar), strlen(startChar) + 3) == "NAK")) // catch NAK without crc
+             (cbLen >= (strlen(startChar) + 3) &&
+              memcmp(cbBuf + strlen(startChar), "NAK", 3) == 0)) // catch NAK without crc
     {
         commandBuffer = "NAK";
     }
@@ -419,10 +443,22 @@ uint16_t cal_crc_half(uint8_t *pin, uint8_t len)
 
 uint16_t PI_Serial::getCRC(String data) // get a calculated crc from a string
 {
+    return getCRC(data.c_str(), data.length());
+}
+
+byte PI_Serial::getCHK(String data) // get a calculatedt CHK
+{
+    return getCHK(data.c_str(), data.length());
+}
+
+uint16_t PI_Serial::getCRC(const char *data, size_t len) // get a calculated crc from a buffer
+{
     crc.reset();
     crc.setPolynome(0x1021);
-    crc.add((uint8_t *)data.c_str(), data.length());
-    // return crc.calc(); // here comes the crc;
+    if (data && len)
+    {
+        crc.add((uint8_t *)data, len);
+    }
     crc.calc();
     uint8_t CRCLow = lowByte(crc.calc());
     uint8_t CRCHigh = highByte(crc.calc());
@@ -440,10 +476,14 @@ uint16_t PI_Serial::getCRC(String data) // get a calculated crc from a string
     return (CRCre);
 }
 
-byte PI_Serial::getCHK(String data) // get a calculatedt CHK
+byte PI_Serial::getCHK(const char *data, size_t len) // get a calculatedt CHK from a buffer
 {
     byte chk = 0;
-    for (unsigned int i = 0; i < data.length(); i++)
+    if (!data || len == 0)
+    {
+        return chk;
+    }
+    for (size_t i = 0; i < len; i++)
     {
         chk += data[i];
     }

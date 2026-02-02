@@ -128,8 +128,6 @@ bool PI_Serial::PIXX_Q1()
     {
         const char *const *q1List = nullptr;
         unsigned int q1LList_length = 0;
-        String strs[30];
-        int StringCount = 0;
         String commandAnswer = this->requestData("Q1");
         get.raw.q1 = commandAnswer;
 
@@ -137,20 +135,10 @@ bool PI_Serial::PIXX_Q1()
             return true;
         if (commandAnswer == DESCR_req_ERCRC)
             return false;
-        while (commandAnswer.length() > 0 && StringCount < 30)
-        {
-            int index = commandAnswer.indexOf(delimiter);
-            if (index == -1) // No separator found
-            {
-                strs[StringCount++] = commandAnswer;
-                break;
-            }
-            else
-            {
-                strs[StringCount++] = commandAnswer.substring(0, index);
-                commandAnswer = commandAnswer.substring(index + 1);
-            }
-        }
+        char bufQ1[256];
+        commandAnswer.toCharArray(bufQ1, sizeof(bufQ1));
+        char *fieldsQ1[30];
+        int StringCount = pi_split_fields(bufQ1, delimiter[0], fieldsQ1, 30);
         if (StringCount >= (int)Q1_108_length)
         {
             q1List = Q1_108;
@@ -178,8 +166,8 @@ bool PI_Serial::PIXX_Q1()
         }
         for (unsigned int i = 0; i < q1LList_length && i < (unsigned int)StringCount; i++)
         {
-            if (!strs[i].isEmpty() && strcmp(q1List[i], "") != 0)
-                liveData[q1List[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+            if (fieldsQ1[i] && fieldsQ1[i][0] != '\0' && strcmp(q1List[i], "") != 0)
+                liveData[q1List[i]] = pi_parse_float2(fieldsQ1[i]);
         }
 
         if (liveData[DESCR_Inverter_Charge_State].is<JsonVariant>())

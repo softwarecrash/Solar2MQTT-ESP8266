@@ -25,7 +25,6 @@ bool PI_Serial::PIXX_QPIGS2()
   {
     String commandAnswer = this->requestData("QPIGS2");
     get.raw.qpigs2 = commandAnswer;
-    String strs[30]; // buffer for string splitting
     if (commandAnswer == DESCR_req_NAK || commandAnswer == DESCR_req_NOA)
     {
       return true;
@@ -35,31 +34,18 @@ bool PI_Serial::PIXX_QPIGS2()
       return false;
     }
 
-    // Split the string into substrings
-    int StringCount = 0;
-    String commandAnswerPayload = commandAnswer;
-    while (commandAnswerPayload.length() > 0 && StringCount < 30)
-    {
-      int index = commandAnswerPayload.indexOf(delimiter);
-      if (index == -1) // No separator found
-      {
-        strs[StringCount++] = commandAnswerPayload;
-        break;
-      }
-      else
-      {
-        strs[StringCount++] = commandAnswerPayload.substring(0, index);
-        commandAnswerPayload = commandAnswerPayload.substring(index + 1);
-      }
-    }
+    char bufQPIGS2[128];
+    commandAnswer.toCharArray(bufQPIGS2, sizeof(bufQPIGS2));
+    char *fieldsQPIGS2[30];
+    int StringCount = pi_split_fields(bufQPIGS2, delimiter[0], fieldsQPIGS2, 30);
 
     if (StringCount >= (int)(sizeof qpigs2ListL2 / sizeof qpigs2ListL2[0]))
     {
       for (unsigned int i = 0; i < sizeof qpigs2ListL2 / sizeof qpigs2ListL2[0]; i++)
       {
-        if (!strs[i].isEmpty() && strcmp(qpigs2ListL2[i], "") != 0)
+        if (fieldsQPIGS2[i][0] != '\0' && strcmp(qpigs2ListL2[i], "") != 0)
         {
-          liveData[qpigs2ListL2[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+          liveData[qpigs2ListL2[i]] = pi_parse_float2(fieldsQPIGS2[i]);
         }
       }
       liveData[DESCR_PV2_Input_Power] = (liveData[DESCR_PV2_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV2_Input_Current].as<unsigned short>());
@@ -68,8 +54,8 @@ bool PI_Serial::PIXX_QPIGS2()
     {
       for (unsigned int i = 0; i < sizeof qpigs2List / sizeof qpigs2List[0]; i++)
       {
-        if (!strs[i].isEmpty() && strcmp(qpigs2List[i], "") != 0)
-          liveData[qpigs2List[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+        if (fieldsQPIGS2[i][0] != '\0' && strcmp(qpigs2List[i], "") != 0)
+          liveData[qpigs2List[i]] = pi_parse_float2(fieldsQPIGS2[i]);
       }
       // make some things pretty
       liveData[DESCR_PV2_Input_Power] = (liveData[DESCR_PV2_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV2_Input_Current].as<unsigned short>());

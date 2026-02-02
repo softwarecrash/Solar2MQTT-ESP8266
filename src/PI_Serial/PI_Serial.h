@@ -3,6 +3,8 @@
 #include "descriptors.h"
 #include "vector"
 #include "SoftwareSerial.h"
+#include <stdlib.h>
+#include <string.h>
 
 #define ARDUINOJSON_USE_DOUBLE 1
 #define ARDUINOJSON_USE_LONG_LONG 1
@@ -13,6 +15,62 @@
 extern JsonObject deviceJson;
 extern JsonObject staticData;
 extern JsonObject liveData;
+
+static inline int pi_split_fields(char *buf, char delim, char *fields[], int maxFields)
+{
+    int count = 0;
+    if (!buf || maxFields <= 0)
+    {
+        return 0;
+    }
+    char *p = buf;
+    while (*p && count < maxFields)
+    {
+        while (*p == delim)
+        {
+            ++p;
+        }
+        if (!*p)
+        {
+            break;
+        }
+        fields[count++] = p;
+        while (*p && *p != delim)
+        {
+            ++p;
+        }
+        if (*p == delim)
+        {
+            *p = '\0';
+            ++p;
+        }
+    }
+    return count;
+}
+
+static inline double pi_parse_float2(const char *s)
+{
+    if (!s || *s == '\0')
+    {
+        return 0.0;
+    }
+    char *endptr = nullptr;
+    double v = strtod(s, &endptr);
+    if (v >= 0.0)
+    {
+        return (int)(v * 100.0 + 0.5) / 100.0;
+    }
+    return (int)(v * 100.0 - 0.5) / 100.0;
+}
+
+static inline double pi_parse_double(const char *s)
+{
+    if (!s || *s == '\0')
+    {
+        return 0.0;
+    }
+    return strtod(s, nullptr);
+}
   
 class PI_Serial
 {
@@ -127,11 +185,13 @@ private:
      * @brief get the crc from a string
      */
     uint16_t getCRC(String data);
+    uint16_t getCRC(const char *data, size_t len);
 
     /**
      * @brief get the crc from a string
      */
     byte getCHK(String data);
+    byte getCHK(const char *data, size_t len);
 
     /**
      * @brief function for autodetect the inverter

@@ -145,25 +145,10 @@ bool PI_Serial::PIXX_QPIGS()
       return true;
     if (commandAnswerQPIGS == DESCR_req_ERCRC)
       return false;
-
-    // Split the string into substrings
-    String strs[30]; // buffer for string splitting
-    int StringCount = 0;
-    String commandAnswerQPIGSPayload = commandAnswerQPIGS;
-    while (commandAnswerQPIGSPayload.length() > 0 && StringCount < 30)
-    {
-      int index = commandAnswerQPIGSPayload.indexOf(delimiter);
-      if (index == -1) // No separator found
-      {
-        strs[StringCount++] = commandAnswerQPIGSPayload;
-        break;
-      }
-      else
-      {
-        strs[StringCount++] = commandAnswerQPIGSPayload.substring(0, index);
-        commandAnswerQPIGSPayload = commandAnswerQPIGSPayload.substring(index + 1);
-      }
-    }
+    char bufQPIGS[256];
+    commandAnswerQPIGS.toCharArray(bufQPIGS, sizeof(bufQPIGS));
+    char *fieldsQPIGS[30];
+    int StringCount = pi_split_fields(bufQPIGS, delimiter[0], fieldsQPIGS, 30);
 
     if (StringCount >= (int)qpigs_106_length)
     {
@@ -171,9 +156,9 @@ bool PI_Serial::PIXX_QPIGS()
       qpigsList_length = qpigs_106_length;
       for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
       {
-        if (!strs[i].isEmpty() && strcmp(qpigsList[i], "") != 0)
+        if (fieldsQPIGS[i][0] != '\0' && strcmp(qpigsList[i], "") != 0)
         {
-          liveData[qpigsList[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+          liveData[qpigsList[i]] = pi_parse_float2(fieldsQPIGS[i]);
         }
       }
       // make some things pretty
@@ -186,9 +171,9 @@ bool PI_Serial::PIXX_QPIGS()
       qpigsList_length = qpigs_21_length;
       for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
       {
-        if (!strs[i].isEmpty() && strcmp(qpigsList[i], "") != 0)
+        if (fieldsQPIGS[i][0] != '\0' && strcmp(qpigsList[i], "") != 0)
         {
-          liveData[qpigsList[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+          liveData[qpigsList[i]] = pi_parse_float2(fieldsQPIGS[i]);
         }
       }
       liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
@@ -200,9 +185,9 @@ bool PI_Serial::PIXX_QPIGS()
       qpigsList_length = qpigs_90_length;
       for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
       {
-        if (!strs[i].isEmpty() && strcmp(qpigsList[i], "") != 0)
+        if (fieldsQPIGS[i][0] != '\0' && strcmp(qpigsList[i], "") != 0)
         {
-          liveData[qpigsList[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+          liveData[qpigsList[i]] = pi_parse_float2(fieldsQPIGS[i]);
         }
       }
       liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
@@ -216,33 +201,21 @@ bool PI_Serial::PIXX_QPIGS()
 
     if (get.raw.qall.length() > 0 && commandAnswerQALL != DESCR_req_NAK && commandAnswerQALL != DESCR_req_NOA && commandAnswerQALL != DESCR_req_ERCRC)
     {
-      String strsQALL[30];
-      //  Split the string into substrings
-      int StringCountQALL = 0;
-      String commandAnswerQALLPayload = commandAnswerQALL;
-      while (commandAnswerQALLPayload.length() > 0 && StringCountQALL < 30)
-      {
-        int index = commandAnswerQALLPayload.indexOf(delimiter);
-        if (index == -1) // No separator found
-        {
-          strsQALL[StringCountQALL++] = commandAnswerQALLPayload;
-          break;
-        }
-        else
-        {
-          strsQALL[StringCountQALL++] = commandAnswerQALLPayload.substring(0, index);
-          commandAnswerQALLPayload = commandAnswerQALLPayload.substring(index + 1);
-        }
-      }
+      char bufQALL[256];
+      commandAnswerQALL.toCharArray(bufQALL, sizeof(bufQALL));
+      char *fieldsQALL[30];
+      int StringCountQALL = pi_split_fields(bufQALL, delimiter[0], fieldsQALL, 30);
 
       if (StringCountQALL >= (int)qallList_length)
       {
         for (unsigned int i = 0; i < qallList_length && i < (unsigned int)StringCountQALL; i++)
         {
-           if (!strsQALL[i].isEmpty() && strcmp(qallList[i], "") != 0)
-             liveData[qallList[i]] = (int)(strsQALL[i].toFloat() * 100 + 0.5) / 100.0;
+           if (fieldsQALL[i][0] != '\0' && strcmp(qallList[i], "") != 0)
+             liveData[qallList[i]] = pi_parse_float2(fieldsQALL[i]);
         }
-        liveData[DESCR_Inverter_Operation_Mode] = getModeDesc((char)liveData[DESCR_Inverter_Operation_Mode].as<String>().charAt(0));
+        const char *modeStr = liveData[DESCR_Inverter_Operation_Mode].as<const char *>();
+        char modeChar = modeStr ? modeStr[0] : '\0';
+        liveData[DESCR_Inverter_Operation_Mode] = getModeDesc(modeChar);
         liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
       }
       else
@@ -261,42 +234,28 @@ bool PI_Serial::PIXX_QPIGS()
       return true;
     if (commandAnswer == DESCR_req_ERCRC)
       return false;
-    // Split the string into substrings
-    String strs[30]; // buffer for string splitting
-    int StringCount = 0;
-    String commandAnswerPayload = commandAnswer;
-    while (commandAnswerPayload.length() > 0 && StringCount < 30)
-    {
-      int index = commandAnswerPayload.indexOf(delimiter);
-      if (index == -1) // No separator found
-      {
-        strs[StringCount++] = commandAnswerPayload;
-        break;
-      }
-      else
-      {
-        strs[StringCount++] = commandAnswerPayload.substring(0, index);
-        commandAnswerPayload = commandAnswerPayload.substring(index + 1);
-      }
-    }
+    char bufP005[256];
+    commandAnswer.toCharArray(bufP005, sizeof(bufP005));
+    char *fieldsP005[30];
+    int StringCount = pi_split_fields(bufP005, delimiter[0], fieldsP005, 30);
 
     if (StringCount >= (int)(sizeof P005GS / sizeof P005GS[0]))
     {
       for (unsigned int i = 0; i < sizeof P005GS[0] / sizeof P005GS[0][0]; i++)
       {
-        if (!strs[i].isEmpty() && strcmp(P005GS[i][0], "") != 0)
+        if (fieldsP005[i][0] != '\0' && strcmp(P005GS[i][0], "") != 0)
         {
           if (atoi(P005GS[i][1]) > 0)
           {
-            liveData[P005GS[i][0]] = (int)((strs[i].toFloat() / atoi(P005GS[i][1])) * 100 + 0.5) / 100.0;
+            liveData[P005GS[i][0]] = (int)((pi_parse_double(fieldsP005[i]) / atoi(P005GS[i][1])) * 100 + 0.5) / 100.0;
           }
           else if (atoi(P005GS[i][1]) == 0)
           {
-            liveData[P005GS[i][0]] = strs[i].toInt();
+            liveData[P005GS[i][0]] = atoi(fieldsP005[i]);
           }
           else
           {
-            liveData[P005GS[i][0]] = strs[i];
+            liveData[P005GS[i][0]] = fieldsP005[i];
           }
         }
       }

@@ -73,6 +73,10 @@ bool loopbackPrevWorker = true;
 unsigned long loopbackWaitStart = 0;
 String loopbackMessage;
 unsigned long wsCleanupTimer = 0;
+const uint32_t WS_MIN_HEAP = 4000;
+const uint32_t HA_MIN_HEAP = 12000;
+const uint32_t HA_MIN_INTERVAL_MS = 60000;
+unsigned long haDiscLastAttempt = 0;
 struct DebugDownloadState
 {
   uint8_t phase = 0;
@@ -88,7 +92,8 @@ struct DebugDownloadState
 };
 
 bool firstPublish;
-JsonDocument Json;                                           // main Json
+static constexpr size_t MAIN_JSON_DOC_SIZE = 8192;
+StaticJsonDocument<MAIN_JSON_DOC_SIZE> Json;                 // main Json (static to reduce heap churn)
 JsonObject deviceJson = Json["EspData"].to<JsonObject>();    // basic device data
 JsonObject staticData = Json["DeviceData"].to<JsonObject>(); // battery package data
 JsonObject liveData = Json["LiveData"].to<JsonObject>();     // battery package data
@@ -141,23 +146,81 @@ void notifyClients()
   };
 
   payload[pos++] = '{';
-  appendVariant("PV_Input_Voltage", liveData[F("PV_Input_Voltage")]);
-  appendVariant("PV_Input_Current", liveData[F("PV_Input_Current")]);
-  appendVariant("PV_Charging_Power", liveData[F("PV_Charging_Power")]);
-  appendVariant("PV2_Input_Voltage", liveData[F("PV2_Input_Voltage")]);
-  appendVariant("PV2_Input_Current", liveData[F("PV2_Input_Current")]);
-  appendVariant("PV2_Charging_Power", liveData[F("PV2_Charging_Power")]);
-  appendVariant("AC_In_Voltage", liveData[F("AC_In_Voltage")]);
-  appendVariant("AC_In_Frequenz", liveData[F("AC_In_Frequenz")]);
-  appendVariant("AC_Out_Voltage", liveData[F("AC_Out_Voltage")]);
-  appendVariant("AC_Out_Frequenz", liveData[F("AC_Out_Frequenz")]);
-  appendVariant("AC_Out_Watt", liveData[F("AC_Out_Watt")]);
-  appendVariant("AC_Out_Percent", liveData[F("AC_Out_Percent")]);
-  appendVariant("Inverter_Bus_Temperature", liveData[F("Inverter_Bus_Temperature")]);
-  appendVariant("Battery_Voltage", liveData[F("Battery_Voltage")]);
-  appendVariant("Battery_Percent", liveData[F("Battery_Percent")]);
-  appendVariant("Battery_Load", liveData[F("Battery_Load")]);
-  appendVariant("Inverter_Operation_Mode", liveData[F("Inverter_Operation_Mode")]);
+  auto appendStringValue = [&](const char *value) {
+    if (pos >= sizeof(payload)) return;
+    payload[pos++] = '"';
+    if (value != nullptr) {
+      for (const char *p = value; *p != '\0' && pos + 2 < sizeof(payload); ++p) {
+        char c = *p;
+      switch (c) {
+      case '\\':
+      case '"':
+        if (pos + 2 >= sizeof(payload)) { pos = sizeof(payload); break; }
+        payload[pos++] = '\\';
+        payload[pos++] = c;
+        break;
+      case '\n':
+        if (pos + 2 >= sizeof(payload)) { pos = sizeof(payload); break; }
+        payload[pos++] = '\\';
+        payload[pos++] = 'n';
+        break;
+      case '\r':
+        if (pos + 2 >= sizeof(payload)) { pos = sizeof(payload); break; }
+        payload[pos++] = '\\';
+        payload[pos++] = 'r';
+        break;
+      case '\t':
+        if (pos + 2 >= sizeof(payload)) { pos = sizeof(payload); break; }
+        payload[pos++] = '\\';
+        payload[pos++] = 't';
+        break;
+      default:
+        payload[pos++] = c;
+        break;
+      }
+      if (pos >= sizeof(payload)) break;
+    }
+    }
+    if (pos < sizeof(payload)) {
+      payload[pos++] = '"';
+    }
+  };
+
+  auto appendVariantByKey = [&](const char *key) {
+    if (pos >= sizeof(payload)) return;
+    JsonVariantConst value = liveData[key];
+    if (value.is<JsonVariantConst>()) {
+      appendKey(key);
+      if (pos >= sizeof(payload)) return;
+      if (value.is<const char *>() || value.is<String>()) {
+        const char *str = value.as<const char *>();
+        if (!str) {
+          str = "";
+        }
+        appendStringValue(str);
+      } else {
+        pos += serializeJson(value, payload + pos, sizeof(payload) - pos);
+      }
+    }
+  };
+
+  appendVariantByKey("PV_Input_Voltage");
+  appendVariantByKey("PV_Input_Current");
+  appendVariantByKey("PV_Charging_Power");
+  appendVariantByKey("PV2_Input_Voltage");
+  appendVariantByKey("PV2_Input_Current");
+  appendVariantByKey("PV2_Charging_Power");
+  appendVariantByKey("AC_In_Voltage");
+  appendVariantByKey("AC_In_Frequenz");
+  appendVariantByKey("AC_Out_Voltage");
+  appendVariantByKey("AC_Out_Frequenz");
+  appendVariantByKey("AC_Out_Watt");
+  appendVariantByKey("AC_Out_Percent");
+  appendVariantByKey("Inverter_Bus_Temperature");
+  appendVariantByKey("Battery_Voltage");
+  appendVariantByKey("Battery_Percent");
+  appendVariantByKey("Battery_Load");
+  appendVariantByKey("Inverter_Operation_Mode");
 
   appendKey("Wifi_RSSI");
   if (pos < sizeof(payload)) {
@@ -248,64 +311,84 @@ static void buildRawLine(uint8_t index, String &line)
   switch (index)
   {
   case 0:
-    line = "Q1: " + mppClient.get.raw.q1;
+    line = F("Q1: ");
+    line += mppClient.get.raw.q1;
     break;
   case 1:
-    line = "QPIGS: " + mppClient.get.raw.qpigs;
+    line = F("QPIGS: ");
+    line += mppClient.get.raw.qpigs;
     break;
   case 2:
-    line = "QPIGS2: " + mppClient.get.raw.qpigs2;
+    line = F("QPIGS2: ");
+    line += mppClient.get.raw.qpigs2;
     break;
   case 3:
-    line = "QPIRI: " + mppClient.get.raw.qpiri;
+    line = F("QPIRI: ");
+    line += mppClient.get.raw.qpiri;
     break;
   case 4:
-    line = "QT: " + mppClient.get.raw.qt;
+    line = F("QT: ");
+    line += mppClient.get.raw.qt;
     break;
   case 5:
-    line = "QET: " + mppClient.get.raw.qet;
+    line = F("QET: ");
+    line += mppClient.get.raw.qet;
     break;
   case 6:
-    line = "QEY: " + mppClient.get.raw.qey;
+    line = F("QEY: ");
+    line += mppClient.get.raw.qey;
     break;
   case 7:
-    line = "QEM: " + mppClient.get.raw.qem;
+    line = F("QEM: ");
+    line += mppClient.get.raw.qem;
     break;
   case 8:
-    line = "QED: " + mppClient.get.raw.qed;
+    line = F("QED: ");
+    line += mppClient.get.raw.qed;
     break;
   case 9:
-    line = "QLT: " + mppClient.get.raw.qlt;
+    line = F("QLT: ");
+    line += mppClient.get.raw.qlt;
     break;
   case 10:
-    line = "QLY: " + mppClient.get.raw.qly;
+    line = F("QLY: ");
+    line += mppClient.get.raw.qly;
     break;
   case 11:
-    line = "QLM: " + mppClient.get.raw.qlm;
+    line = F("QLM: ");
+    line += mppClient.get.raw.qlm;
     break;
   case 12:
-    line = "QLD: " + mppClient.get.raw.qld;
+    line = F("QLD: ");
+    line += mppClient.get.raw.qld;
     break;
   case 13:
-    line = "QPI: " + mppClient.get.raw.qpi;
+    line = F("QPI: ");
+    line += mppClient.get.raw.qpi;
     break;
   case 14:
-    line = "QMOD: " + mppClient.get.raw.qmod;
+    line = F("QMOD: ");
+    line += mppClient.get.raw.qmod;
     break;
   case 15:
-    line = "QALL: " + mppClient.get.raw.qall;
+    line = F("QALL: ");
+    line += mppClient.get.raw.qall;
     break;
   case 16:
-    line = "QMN: " + mppClient.get.raw.qmn;
+    line = F("QMN: ");
+    line += mppClient.get.raw.qmn;
     break;
   case 17:
-    line = "QPIWS: " + mppClient.get.raw.qpiws;
+    line = F("QPIWS: ");
+    line += mppClient.get.raw.qpiws;
     break;
   case 18:
-    line = "QFLAG: " + mppClient.get.raw.qflag;
+    line = F("QFLAG: ");
+    line += mppClient.get.raw.qflag;
     break;
   case 19:
-    line = "CommandAnswer: " + mppClient.get.raw.commandAnswer;
+    line = F("CommandAnswer: ");
+    line += mppClient.get.raw.commandAnswer;
     break;
   default:
     break;
@@ -337,7 +420,11 @@ static bool buildNextDebugLine(DebugDownloadState &state)
       return true;
     case 2:
       state.line = "Uptime: ";
-      state.line += String(millis() / 1000);
+      {
+        char uptimeBuf[16];
+        snprintf(uptimeBuf, sizeof(uptimeBuf), "%lu", millis() / 1000);
+        state.line += uptimeBuf;
+      }
       state.line += " s\n";
       state.headerStep++;
       return true;
@@ -412,7 +499,17 @@ static bool buildNextDebugLine(DebugDownloadState &state)
     state.line += ".";
     state.line += kv.key().c_str();
     state.line += "=";
-    state.line += kv.value().as<String>();
+    if (kv.value().is<const char *>())
+    {
+      state.line += kv.value().as<const char *>();
+    }
+    else
+    {
+      char valBuf[64];
+      size_t n = serializeJson(kv.value(), valBuf, sizeof(valBuf) - 1);
+      valBuf[n] = '\0';
+      state.line += valBuf;
+    }
     state.line += "\n";
     return true;
   }
@@ -436,14 +533,21 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   switch (type)
   {
   case WS_EVT_CONNECT:
+    if (ESP.getFreeHeap() < WS_MIN_HEAP)
+    {
+      client->close();
+      break;
+    }
     wsClient = client;
     notifyClients();
+    Serial.printf("WS connect id=%u heap=%u\n", client->id(), ESP.getFreeHeap());
     break;
     case WS_EVT_PING:
     break;
   case WS_EVT_DISCONNECT:
     wsClient = nullptr;
     ws.cleanupClients(); // clean unused client connections
+    Serial.printf("WS disconnect id=%u heap=%u\n", client->id(), ESP.getFreeHeap());
     break;
   case WS_EVT_DATA:
     handleWebSocketMessage(arg, data, len);
@@ -453,6 +557,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   case WS_EVT_ERROR:
     wsClient = nullptr;
     ws.cleanupClients(); // clean unused client connections
+    Serial.printf("WS error id=%u heap=%u\n", client->id(), ESP.getFreeHeap());
     break;
   }
 }
@@ -461,12 +566,15 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 void recvMsg(uint8_t *data, size_t len)
 {
   String d = "";
+  d.reserve(len);
   for (uint i = 0; i < len; i++)
   {
     d += char(data[i]);
   }
   commandFromUser = (d);
-  webSerial.println("Sending [" + d + "] to Device");
+  webSerial.print(F("Sending ["));
+  webSerial.print(d);
+  webSerial.println(F("] to Device"));
 }
 
 bool resetCounter(bool count)
@@ -516,9 +624,9 @@ struct HtmlChunkState
   size_t chunkOffset = 0;
 };
 
-static void appendJsonString(String &out, const char *value)
+static void appendJsonString(Print &out, const char *value)
 {
-  out += '"';
+  out.print('"');
   if (value != nullptr)
   {
     for (const char *p = value; *p != '\0'; ++p)
@@ -528,25 +636,25 @@ static void appendJsonString(String &out, const char *value)
       {
       case '\\':
       case '"':
-        out += '\\';
-        out += c;
+        out.print('\\');
+        out.print(c);
         break;
       case '\n':
-        out += "\\n";
+        out.print(F("\\n"));
         break;
       case '\r':
-        out += "\\r";
+        out.print(F("\\r"));
         break;
       case '\t':
-        out += "\\t";
+        out.print(F("\\t"));
         break;
       default:
-        out += c;
+        out.print(c);
         break;
       }
     }
   }
-  out += '"';
+  out.print('"');
 }
 
 void sendChunkedHtmlPage(AsyncWebServerRequest *request, const char *htmlBodyPROGMEM)
@@ -604,66 +712,54 @@ void sendChunkedHtmlPage(AsyncWebServerRequest *request, const char *htmlBodyPRO
 
 void sendMetaJson(AsyncWebServerRequest *request)
 {
-  size_t estimate = 128 + strlen(settings.data.deviceName) + strlen(SOFTWARE_VERSION) + strlen(SWVERSION);
-  String json;
-  json.reserve(estimate);
-  json += '{';
-  json += "\"device_name\":";
-  appendJsonString(json, settings.data.deviceName);
-  json += ",\"software_version\":";
-  appendJsonString(json, SOFTWARE_VERSION);
-  json += ",\"sw_version\":";
-  appendJsonString(json, SWVERSION);
-  json += ",\"dark_mode\":";
-  json += settings.data.webUIdarkmode ? "true" : "false";
-  json += ",\"flash_size\":";
-  json += ESP.getFreeSketchSpace();
-  json += '}';
-  request->send(200, "application/json", json);
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  response->print('{');
+  response->print(F("\"device_name\":"));
+  appendJsonString(*response, settings.data.deviceName);
+  response->print(F(",\"software_version\":"));
+  appendJsonString(*response, SOFTWARE_VERSION);
+  response->print(F(",\"sw_version\":"));
+  appendJsonString(*response, SWVERSION);
+  response->print(F(",\"dark_mode\":"));
+  response->print(settings.data.webUIdarkmode ? F("true") : F("false"));
+  response->print(F(",\"flash_size\":"));
+  response->print(ESP.getFreeSketchSpace());
+  response->print('}');
+  request->send(response);
 }
 
 void sendConfigJson(AsyncWebServerRequest *request)
 {
-  size_t estimate = 256 +
-                    strlen(settings.data.deviceName) +
-                    strlen(settings.data.mqttServer) +
-                    strlen(settings.data.mqttUser) +
-                    strlen(settings.data.mqttPassword) +
-                    strlen(settings.data.mqttTopic) +
-                    strlen(settings.data.mqttTriggerPath) +
-                    strlen(settings.data.httpUser) +
-                    strlen(settings.data.httpPass);
-  String json;
-  json.reserve(estimate);
-  json += '{';
-  json += "\"device_name\":";
-  appendJsonString(json, settings.data.deviceName);
-  json += ",\"mqtt_server\":";
-  appendJsonString(json, settings.data.mqttServer);
-  json += ",\"mqtt_port\":";
-  json += settings.data.mqttPort;
-  json += ",\"mqtt_user\":";
-  appendJsonString(json, settings.data.mqttUser);
-  json += ",\"mqtt_password\":";
-  appendJsonString(json, settings.data.mqttPassword);
-  json += ",\"mqtt_topic\":";
-  appendJsonString(json, settings.data.mqttTopic);
-  json += ",\"mqtt_refresh\":";
-  json += settings.data.mqttRefresh;
-  json += ",\"mqtt_trigger\":";
-  appendJsonString(json, settings.data.mqttTriggerPath);
-  json += ",\"mqtt_json\":";
-  json += settings.data.mqttJson ? "true" : "false";
-  json += ",\"ha_discovery\":";
-  json += settings.data.haDiscovery ? "true" : "false";
-  json += ",\"webui_dark_mode\":";
-  json += settings.data.webUIdarkmode ? "true" : "false";
-  json += ",\"http_user\":";
-  appendJsonString(json, settings.data.httpUser);
-  json += ",\"http_pass\":";
-  appendJsonString(json, settings.data.httpPass);
-  json += '}';
-  request->send(200, "application/json", json);
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  response->print('{');
+  response->print(F("\"device_name\":"));
+  appendJsonString(*response, settings.data.deviceName);
+  response->print(F(",\"mqtt_server\":"));
+  appendJsonString(*response, settings.data.mqttServer);
+  response->print(F(",\"mqtt_port\":"));
+  response->print(settings.data.mqttPort);
+  response->print(F(",\"mqtt_user\":"));
+  appendJsonString(*response, settings.data.mqttUser);
+  response->print(F(",\"mqtt_password\":"));
+  appendJsonString(*response, settings.data.mqttPassword);
+  response->print(F(",\"mqtt_topic\":"));
+  appendJsonString(*response, settings.data.mqttTopic);
+  response->print(F(",\"mqtt_refresh\":"));
+  response->print(settings.data.mqttRefresh);
+  response->print(F(",\"mqtt_trigger\":"));
+  appendJsonString(*response, settings.data.mqttTriggerPath);
+  response->print(F(",\"mqtt_json\":"));
+  response->print(settings.data.mqttJson ? F("true") : F("false"));
+  response->print(F(",\"ha_discovery\":"));
+  response->print(settings.data.haDiscovery ? F("true") : F("false"));
+  response->print(F(",\"webui_dark_mode\":"));
+  response->print(settings.data.webUIdarkmode ? F("true") : F("false"));
+  response->print(F(",\"http_user\":"));
+  appendJsonString(*response, settings.data.httpUser);
+  response->print(F(",\"http_pass\":"));
+  appendJsonString(*response, settings.data.httpPass);
+  response->print('}');
+  request->send(response);
 }
 
 
@@ -681,6 +777,9 @@ void setup()
   resetCounter(true);
   DBG_BEGIN(DBG_BAUD); // Debugging towards UART1
   settings.load();
+  commandFromUser.reserve(32);
+  customResponse.reserve(64);
+  loopbackMessage.reserve(32);
   WiFi.persistent(true); // fix wifi save bug
   WiFi.hostname(settings.data.deviceName);
   WiFi.setAutoReconnect(true);
@@ -863,11 +962,17 @@ void setup()
     server.on("/debug/loopback-status", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                 if(strlen(settings.data.httpUser) > 0 && !request->authenticate(settings.data.httpUser, settings.data.httpPass)) return request->requestAuthentication();
-                String payload = String("{\"running\":") + (loopbackInProgress ? "true" : "false") +
-                                 ",\"done\":" + (loopbackDone ? "true" : "false") +
-                                 ",\"ok\":" + (loopbackOk ? "true" : "false") +
-                                 ",\"message\":\"" + loopbackMessage + "\"}";
-                request->send(200, "application/json", payload); });
+                AsyncResponseStream *response = request->beginResponseStream("application/json");
+                response->print(F("{\"running\":"));
+                response->print(loopbackInProgress ? F("true") : F("false"));
+                response->print(F(",\"done\":"));
+                response->print(loopbackDone ? F("true") : F("false"));
+                response->print(F(",\"ok\":"));
+                response->print(loopbackOk ? F("true") : F("false"));
+                response->print(F(",\"message\":"));
+                appendJsonString(*response, loopbackMessage.c_str());
+                response->print('}');
+                request->send(response); });
 
     server.on("/debug/download", HTTP_GET, [](AsyncWebServerRequest *request)
               {
@@ -884,6 +989,7 @@ void setup()
                 request->onDisconnect(cleanup);
 
                 auto state = std::make_shared<DebugDownloadState>();
+                state->line.reserve(256);
 
                 AsyncWebServerResponse *response = request->beginChunkedResponse(
                   "text/plain",
@@ -988,6 +1094,22 @@ void setup()
     MDNS.begin(settings.data.deviceName);
     MDNS.addService("http", "tcp", 80);
     ws.onEvent(onEvent);
+    ws.handleHandshake([](AsyncWebServerRequest *request) -> bool
+                       {
+                         uint32_t heap = ESP.getFreeHeap();
+                         if (heap < WS_MIN_HEAP)
+                         {
+                           Serial.printf("WS handshake rejected (heap=%u)\n", heap);
+                           return false;
+                         }
+                         if (ws.count() >= 1)
+                         {
+                           Serial.printf("WS handshake rejected (client limit, heap=%u)\n", heap);
+                           return false;
+                         }
+                         Serial.printf("WS handshake accepted (heap=%u)\n", heap);
+                         return true;
+                       });
     server.addHandler(&ws);
     webSerial.begin(&server);
     webSerial.onMessage(recvMsg);
@@ -1071,12 +1193,18 @@ void loop()
 
       mppClient.loop();    // Call the PI Serial Library loop
       mqttclient.loop();
-      if ((haDiscTrigger || settings.data.haDiscovery) && measureJson(Json) > jsonSize)
+      if (haDiscTrigger || settings.data.haDiscovery)
       {
-        if (sendHaDiscovery())
+        if (ESP.getFreeHeap() >= HA_MIN_HEAP &&
+            (millis() - haDiscLastAttempt) >= HA_MIN_INTERVAL_MS &&
+            measureJson(Json) > jsonSize)
         {
-          haDiscTrigger = false;
-          jsonSize = measureJson(Json);
+          haDiscLastAttempt = millis();
+          if (sendHaDiscovery())
+          {
+            haDiscTrigger = false;
+            jsonSize = measureJson(Json);
+          }
         }
       }
     }
@@ -1131,7 +1259,9 @@ void getJsonData()
   {
     for (size_t i = 0; i < tempSens.getSensorsCount(); i++)
     {
-      deviceJson["DS18B20_" + String(i + 1)] = tempSens.getTemperatureC(i);
+      char key[16];
+      snprintf(key, sizeof(key), "DS18B20_%u", static_cast<unsigned int>(i + 1));
+      deviceJson[key] = tempSens.getTemperatureC(i);
     }
   }
 #endif
@@ -1142,6 +1272,25 @@ char *topicBuilder(char *buffer, char const *path, char const *numering = "")
   const char *mainTopic = settings.data.mqttTopic; // get the main topic path
   snprintf(buffer, MQTT_TOPIC_BUFFER_LEN, "%s/%s%s", mainTopic, path, numering);
   return buffer;
+}
+
+static void publishJsonValue(PubSubClient &client, const char *topic, JsonVariantConst value)
+{
+  const char *str = value.as<const char *>();
+  if (str != nullptr)
+  {
+    client.publish(topic, str);
+    return;
+  }
+  if (value.isNull())
+  {
+    client.publish(topic, "");
+    return;
+  }
+  char buffer[64];
+  size_t n = serializeJson(value, buffer, sizeof(buffer) - 1);
+  buffer[n] = '\0';
+  client.publish(topic, buffer);
 }
 
 bool connectMQTT()
@@ -1158,7 +1307,10 @@ bool connectMQTT()
       if (mqttclient.connected())
       {
         mqttclient.publish(topicBuilder(buff, "Alive"), "true", true); // LWT online message must be retained!
-        mqttclient.publish(topicBuilder(buff, "IP"), (const char *)(WiFi.localIP().toString()).c_str(), true);
+        char ipStr[16];
+        IPAddress ip = WiFi.localIP();
+        snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+        mqttclient.publish(topicBuilder(buff, "IP"), ipStr, true);
         mqttclient.subscribe(topicBuilder(buff, "DeviceControl/Set_Command"));
         if (strlen(settings.data.mqttTriggerPath) >= 1)
         {
@@ -1193,12 +1345,14 @@ bool sendtoMQTT()
       for (JsonPair jsondat : jsonDev.value().as<JsonObject>())
       {
         snprintf(msgBuffer1, sizeof(msgBuffer1), "%s/%s/%s", settings.data.mqttTopic, jsonDev.key().c_str(), jsondat.key().c_str());
-        mqttclient.publish(msgBuffer1, jsondat.value().as<String>().c_str());
+        publishJsonValue(mqttclient, msgBuffer1, jsondat.value());
       }
     }
     if (mppClient.get.raw.commandAnswer.length() > 0)
     {
-      mqttclient.publish((String(settings.data.mqttTopic) + String("/DeviceControl/Set_Command_answer")).c_str(), (mppClient.get.raw.commandAnswer).c_str());
+      char cmdTopic[MQTT_TOPIC_BUFFER_LEN];
+      snprintf(cmdTopic, sizeof(cmdTopic), "%s/DeviceControl/Set_Command_answer", settings.data.mqttTopic);
+      mqttclient.publish(cmdTopic, (mppClient.get.raw.commandAnswer).c_str());
       writeLog("raw command answer: %s", mppClient.get.raw.commandAnswer.c_str());
       mppClient.get.raw.commandAnswer = "";
     }
@@ -1236,13 +1390,17 @@ bool sendtoMQTT()
         for (JsonPair jsondat : jsonDev.value().as<JsonObject>())
         {
           snprintf(msgBuffer1, sizeof(msgBuffer1), "%s/%s/%s", settings.data.mqttTopic, jsonDev.key().c_str(), jsondat.key().c_str());
-          mqttclient.publish(msgBuffer1, jsondat.value().as<String>().c_str());
+          publishJsonValue(mqttclient, msgBuffer1, jsondat.value());
         }
       }
     }
   }
   mqttclient.publish(topicBuilder(buff, "Alive"), "true", true); // LWT online message must be retained!
-  mqttclient.publish(topicBuilder(buff, "EspData/Wifi_RSSI"), String(WiFi.RSSI()).c_str());
+  {
+    char rssiBuf[12];
+    snprintf(rssiBuf, sizeof(rssiBuf), "%d", WiFi.RSSI());
+    mqttclient.publish(topicBuilder(buff, "EspData/Wifi_RSSI"), rssiBuf);
+  }
   writeLog("Data sent to MQTT");
   firstPublish = true;
 
@@ -1253,6 +1411,7 @@ void mqttcallback(char *top, unsigned char *payload, unsigned int length)
 {
   char buff[MQTT_TOPIC_BUFFER_LEN];
   String messageTemp;
+  messageTemp.reserve(length);
   for (unsigned int i = 0; i < length; i++)
   {
     messageTemp += (char)payload[i];
@@ -1274,74 +1433,122 @@ void mqttcallback(char *top, unsigned char *payload, unsigned int length)
   }
 }
 
+static size_t appendFmt(char *buffer, size_t bufferSize, size_t pos, const char *fmt, ...)
+{
+  if (pos >= bufferSize)
+  {
+    return pos;
+  }
+  va_list args;
+  va_start(args, fmt);
+  int written = vsnprintf(buffer + pos, bufferSize - pos, fmt, args);
+  va_end(args);
+  if (written < 0)
+  {
+    return pos;
+  }
+  size_t w = static_cast<size_t>(written);
+  if (w >= bufferSize - pos)
+  {
+    return bufferSize - 1;
+  }
+  return pos + w;
+}
+
+static const char *readDescriptorString(const char *const (*table)[4], size_t row, size_t col)
+{
+  return reinterpret_cast<const char *>(pgm_read_ptr(&table[row][col]));
+}
+
 bool sendHaDiscovery()
 {
+  if (ESP.getFreeHeap() < HA_MIN_HEAP)
+  {
+    writeLog("HA discovery skipped (low heap)");
+    return false;
+  }
   if (!connectMQTT())
   {
     return false;
   }
-  String haDeviceDescription = String("\"dev\":") +
-                               "{\"ids\":[\"" + mqttClientId + "\"]," +
-                               "\"name\":\"" + settings.data.deviceName + "\"," +
-                               "\"cu\":\"http://" + WiFi.localIP().toString() + "\"," +
-                               "\"mdl\":\"" + staticData["Device_Model"].as<String>().c_str() + "\"," +
-                               "\"mf\":\"SoftWareCrash\"," +
-                               "\"sw\":\"" + SOFTWARE_VERSION + "\"" +
-                               "}";
+  const char *deviceModel = staticData["Device_Model"] | "";
+  char ipStr[16];
+  IPAddress ip = WiFi.localIP();
+  snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+  char deviceDesc[256];
+  size_t devicePos = 0;
+  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"dev\":{");
+  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"ids\":[\"%s\"],", mqttClientId);
+  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"name\":\"%s\",", settings.data.deviceName);
+  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"cu\":\"http://%s\",", ipStr);
+  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"mdl\":\"%s\",", deviceModel);
+  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"mf\":\"SoftWareCrash\",");
+  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"sw\":\"%s\"}", SOFTWARE_VERSION);
 
   char topBuff[MQTT_TOPIC_BUFFER_LEN];
+  char payload[512];
   for (size_t i = 0; i < sizeof haStaticDescriptor / sizeof haStaticDescriptor[0]; i++)
   {
-    if (staticData[haStaticDescriptor[i][0]].is<JsonVariant>())
+    const char *name = readDescriptorString(haStaticDescriptor, i, 0);
+    const char *icon = readDescriptorString(haStaticDescriptor, i, 1);
+    const char *unit = readDescriptorString(haStaticDescriptor, i, 2);
+    const char *devClass = readDescriptorString(haStaticDescriptor, i, 3);
+    if (staticData[name].is<JsonVariant>())
     {
-      String haPayLoad = String("{") +
-                         "\"name\":\"" + haStaticDescriptor[i][0] + "\"," +
-                         "\"stat_t\":\"" + settings.data.mqttTopic + "/DeviceData/" + haStaticDescriptor[i][0] + "\"," +
-                         "\"avty_t\":\"" + settings.data.mqttTopic + "/Alive\"," +
-                         "\"pl_avail\": \"true\"," +
-                         "\"pl_not_avail\": \"false\"," +
-                         "\"uniq_id\":\"" + mqttClientId + "." + haStaticDescriptor[i][0] + "\"," +
-                         "\"ic\":\"mdi:" + haStaticDescriptor[i][1] + "\",";
-      if (strlen(haStaticDescriptor[i][2]) != 0)
-        haPayLoad += (String) "\"unit_of_meas\":\"" + haStaticDescriptor[i][2] + "\",";
-      if (strlen(haStaticDescriptor[i][3]) != 0)
-        haPayLoad += (String) "\"dev_cla\":\"" + haStaticDescriptor[i][3] + "\",";
-      haPayLoad += haDeviceDescription;
-      haPayLoad += "}";
-      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, haStaticDescriptor[i][0]); // build the topic
-      mqttclient.beginPublish(topBuff, haPayLoad.length(), true);
-      for (size_t i = 0; i < haPayLoad.length(); i++)
+      size_t pos = 0;
+      pos = appendFmt(payload, sizeof(payload), pos, "{");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"name\":\"%s\",", name);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"stat_t\":\"%s/DeviceData/%s\",", settings.data.mqttTopic, name);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"avty_t\":\"%s/Alive\",", settings.data.mqttTopic);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_avail\":\"true\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_not_avail\":\"false\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"uniq_id\":\"%s.%s\",", mqttClientId, name);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"ic\":\"mdi:%s\",", icon);
+      if (unit != nullptr && unit[0] != '\0')
       {
-        mqttclient.write(haPayLoad[i]);
+        pos = appendFmt(payload, sizeof(payload), pos, "\"unit_of_meas\":\"%s\",", unit);
       }
+      if (devClass != nullptr && devClass[0] != '\0')
+      {
+        pos = appendFmt(payload, sizeof(payload), pos, "\"dev_cla\":\"%s\",", devClass);
+      }
+      pos = appendFmt(payload, sizeof(payload), pos, "%s}", deviceDesc);
+      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, name); // build the topic
+      mqttclient.beginPublish(topBuff, pos, true);
+      mqttclient.write((const uint8_t *)payload, pos);
       mqttclient.endPublish();
     }
   }
 
   for (size_t i = 0; i < sizeof haLiveDescriptor / sizeof haLiveDescriptor[0]; i++)
   {
-    if (liveData[haLiveDescriptor[i][0]].is<JsonVariant>())
+    const char *name = readDescriptorString(haLiveDescriptor, i, 0);
+    const char *icon = readDescriptorString(haLiveDescriptor, i, 1);
+    const char *unit = readDescriptorString(haLiveDescriptor, i, 2);
+    const char *devClass = readDescriptorString(haLiveDescriptor, i, 3);
+    if (liveData[name].is<JsonVariant>())
     {
-      String haPayLoad = String("{") +
-                         "\"name\":\"" + haLiveDescriptor[i][0] + "\"," +
-                         "\"stat_t\":\"" + settings.data.mqttTopic + "/LiveData/" + haLiveDescriptor[i][0] + "\"," +
-                         "\"avty_t\":\"" + settings.data.mqttTopic + "/Alive\"," +
-                         "\"pl_avail\": \"true\"," +
-                         "\"pl_not_avail\": \"false\"," +
-                         "\"uniq_id\":\"" + mqttClientId + "." + haLiveDescriptor[i][0] + "\"," +
-                         "\"ic\":\"mdi:" + haLiveDescriptor[i][1] + "\",";
-      if (strlen(haLiveDescriptor[i][2]) != 0)
-        haPayLoad += (String) "\"unit_of_meas\":\"" + haLiveDescriptor[i][2] + "\",";
-      if (strlen(haLiveDescriptor[i][3]) != 0)
-        haPayLoad += (String) "\"dev_cla\":\"" + haLiveDescriptor[i][3] + "\",";
-      haPayLoad += haDeviceDescription;
-      haPayLoad += "}";
-      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, haLiveDescriptor[i][0]); // build the topic
-      mqttclient.beginPublish(topBuff, haPayLoad.length(), true);
-      for (size_t i = 0; i < haPayLoad.length(); i++)
+      size_t pos = 0;
+      pos = appendFmt(payload, sizeof(payload), pos, "{");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"name\":\"%s\",", name);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"stat_t\":\"%s/LiveData/%s\",", settings.data.mqttTopic, name);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"avty_t\":\"%s/Alive\",", settings.data.mqttTopic);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_avail\":\"true\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_not_avail\":\"false\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"uniq_id\":\"%s.%s\",", mqttClientId, name);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"ic\":\"mdi:%s\",", icon);
+      if (unit != nullptr && unit[0] != '\0')
       {
-        mqttclient.write(haPayLoad[i]);
+        pos = appendFmt(payload, sizeof(payload), pos, "\"unit_of_meas\":\"%s\",", unit);
       }
+      if (devClass != nullptr && devClass[0] != '\0')
+      {
+        pos = appendFmt(payload, sizeof(payload), pos, "\"dev_cla\":\"%s\",", devClass);
+      }
+      pos = appendFmt(payload, sizeof(payload), pos, "%s}", deviceDesc);
+      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, name); // build the topic
+      mqttclient.beginPublish(topBuff, pos, true);
+      mqttclient.write((const uint8_t *)payload, pos);
       mqttclient.endPublish();
     }
   }
@@ -1351,34 +1558,32 @@ bool sendHaDiscovery()
   {
     for (size_t i = 0; i < tempSens.getSensorsCount(); i++)
     {
-      String haDeviceDescription = String("\"dev\":") +
-                                   "{\"ids\":[\"" + mqttClientId + "\"]," +
-                                   "\"name\":\"" + settings.data.deviceName + "\"," +
-                                   "\"cu\":\"http://" + WiFi.localIP().toString() + "\"," +
-                                   "\"mdl\":\"EPEver2MQTT\"," +
-                                   "\"mf\":\"SoftWareCrash\"," +
-                                   "\"sw\":\"" + SOFTWARE_VERSION + "\"" +
-                                   "}";
+      char tempDeviceDesc[256];
+      size_t tempDescPos = 0;
+      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"dev\":{");
+      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"ids\":[\"%s\"],", mqttClientId);
+      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"name\":\"%s\",", settings.data.deviceName);
+      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"cu\":\"http://%s\",", ipStr);
+      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"mdl\":\"EPEver2MQTT\",");
+      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"mf\":\"SoftWareCrash\",");
+      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"sw\":\"%s\"}", SOFTWARE_VERSION);
 
-      String haPayLoad = String("{") +
-                         "\"name\":\"DS18B20_" + (i + 1) + "\"," +
-                         "\"stat_t\":\"" + settings.data.mqttTopic + "/DS18B20_" + (i + 1) + "\"," +
-                         "\"avty_t\":\"" + settings.data.mqttTopic + "/Alive\"," +
-                         "\"pl_avail\": \"true\"," +
-                         "\"pl_not_avail\": \"false\"," +
-                         "\"uniq_id\":\"" + mqttClientId + ".DS18B20_" + (i + 1) + "\"," +
-                         "\"ic\":\"mdi:thermometer-lines\"," +
-                         "\"unit_of_meas\":\"°C\"," +
-                         "\"dev_cla\":\"temperature\",";
-      haPayLoad += haDeviceDescription;
-      haPayLoad += "}";
+      size_t pos = 0;
+      pos = appendFmt(payload, sizeof(payload), pos, "{");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"name\":\"DS18B20_%d\",", (i + 1));
+      pos = appendFmt(payload, sizeof(payload), pos, "\"stat_t\":\"%s/DS18B20_%d\",", settings.data.mqttTopic, (i + 1));
+      pos = appendFmt(payload, sizeof(payload), pos, "\"avty_t\":\"%s/Alive\",", settings.data.mqttTopic);
+      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_avail\":\"true\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_not_avail\":\"false\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"uniq_id\":\"%s.DS18B20_%d\",", mqttClientId, (i + 1));
+      pos = appendFmt(payload, sizeof(payload), pos, "\"ic\":\"mdi:thermometer-lines\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"unit_of_meas\":\"°C\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "\"dev_cla\":\"temperature\",");
+      pos = appendFmt(payload, sizeof(payload), pos, "%s}", tempDeviceDesc);
       snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/DS18B20_%d/config", settings.data.mqttTopic, (i + 1)); // build the topic
 
-      mqttclient.beginPublish(topBuff, haPayLoad.length(), true);
-      for (size_t i = 0; i < haPayLoad.length(); i++)
-      {
-        mqttclient.write(haPayLoad[i]);
-      }
+      mqttclient.beginPublish(topBuff, pos, true);
+      mqttclient.write((const uint8_t *)payload, pos);
       mqttclient.endPublish();
     }
   }

@@ -17,7 +17,7 @@ const char *MustPV_PH18::getName() const
 bool MustPV_PH18::retrieveModel(MODBUS_COM &mCom, char *modelBuffer, size_t bufferSize)
 {
     modelBuffer[0] = '\0'; // Clear the buffer
-    JsonDocument doc;
+    StaticJsonDocument<256> doc;
     JsonObject jsonObj = doc.to<JsonObject>(); // Create and get JsonObject
     modbus_register_info_t model_info = {
         .variant = &jsonObj,

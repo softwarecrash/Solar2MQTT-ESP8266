@@ -162,24 +162,10 @@ bool PI_Serial::PIXX_QPIRI()
     byte protocolNum = 0;
     const char *const *qpiriMap = qpiriList[protocolNum];
     unsigned int qpiriMapLength = sizeof qpiriList[protocolNum] / sizeof qpiriList[protocolNum][0];
-    String strs[30];
-    // Split the string into substrings
-    int StringCount = 0;
-    String commandAnswerPayload = commandAnswer;
-    while (commandAnswerPayload.length() > 0 && StringCount < 30)
-    {
-      int index = commandAnswerPayload.indexOf(delimiter);
-      if (index == -1) // No separator found
-      {
-        strs[StringCount++] = commandAnswerPayload;
-        break;
-      }
-      else
-      {
-        strs[StringCount++] = commandAnswerPayload.substring(0, index);
-        commandAnswerPayload = commandAnswerPayload.substring(index + 1);
-      }
-    }
+    char bufQPIRI[256];
+    commandAnswer.toCharArray(bufQPIRI, sizeof(bufQPIRI));
+    char *fieldsQPIRI[30];
+    int StringCount = pi_split_fields(bufQPIRI, delimiter[0], fieldsQPIRI, 30);
 
     if (StringCount >= (int)qpiriMapLength)
     {
@@ -204,8 +190,8 @@ bool PI_Serial::PIXX_QPIRI()
 
     for (unsigned int i = 0; i < qpiriMapLength && i < (unsigned int)StringCount; i++)
     {
-      if (!strs[i].isEmpty() && strcmp(qpiriMap[i], "") != 0)
-        staticData[qpiriMap[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
+      if (fieldsQPIRI[i] && fieldsQPIRI[i][0] != '\0' && strcmp(qpiriMap[i], "") != 0)
+        staticData[qpiriMap[i]] = pi_parse_float2(fieldsQPIRI[i]);
     }
 
       switch ((byte)staticData[DESCR_Battery_Type].as<unsigned int>())
@@ -304,24 +290,10 @@ bool PI_Serial::PIXX_QPIRI()
     {
       return false;
     }
-    String strs[30];
-    // Split the string into substrings
-    int StringCount = 0;
-    String commandAnswerPayload = commandAnswer;
-    while (commandAnswerPayload.length() > 0 && StringCount < 30)
-    {
-      int index = commandAnswerPayload.indexOf(delimiter);
-      if (index == -1) // No separator found
-      {
-        strs[StringCount++] = commandAnswerPayload;
-        break;
-      }
-      else
-      {
-        strs[StringCount++] = commandAnswerPayload.substring(0, index);
-        commandAnswerPayload = commandAnswerPayload.substring(index + 1);
-      }
-    }
+    char bufP007[256];
+    commandAnswer.toCharArray(bufP007, sizeof(bufP007));
+    char *fieldsP007[30];
+    int StringCount = pi_split_fields(bufP007, delimiter[0], fieldsP007, 30);
 
     if (StringCount < (int)(sizeof P007PIRI / sizeof P007PIRI[0]))
     {
@@ -331,19 +303,21 @@ bool PI_Serial::PIXX_QPIRI()
 
     for (unsigned int i = 0; i < sizeof P007PIRI[0] / sizeof P007PIRI[0][0] && i < (unsigned int)StringCount; i++)
     {
-      if (!strs[i].isEmpty() && strcmp(P007PIRI[i][0], "") != 0)
+      if (fieldsP007[i] && fieldsP007[i][0] != '\0' && strcmp(P007PIRI[i][0], "") != 0)
       {
-        if (atoi(P007PIRI[i][1]) > 0)
+        int divisor = atoi(P007PIRI[i][1]);
+        if (divisor > 0)
         {
-          staticData[P007PIRI[i][0]] = (int)((strs[i].toFloat() / atoi(P007PIRI[i][1])) * 100 + 0.5) / 100.0;
+          double val = pi_parse_double(fieldsP007[i]) / divisor;
+          staticData[P007PIRI[i][0]] = (int)(val * 100 + 0.5) / 100.0;
         }
-        else if (atoi(P007PIRI[i][1]) == 0)
+        else if (divisor == 0)
         {
-          staticData[P007PIRI[i][0]] = strs[i].toInt();
+          staticData[P007PIRI[i][0]] = atoi(fieldsP007[i]);
         }
         else
         {
-          staticData[P007PIRI[i][0]] = strs[i];
+          staticData[P007PIRI[i][0]] = fieldsP007[i];
         }
         // staticData[qpiriList[0][i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
       }
