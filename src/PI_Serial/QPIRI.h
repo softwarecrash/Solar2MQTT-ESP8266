@@ -1,95 +1,148 @@
 static const char *const qpiriList[][30] = {
     // [PI34 / MPPT-3000], [PI30 HS MS MSX], [PI30 Revo], [PI30 PIP], [PI41 / LV5048]
     {
-        "AC_in_rating_voltage",            // BBB.B
-        "AC_in_rating_current",            // CC.C
-        "AC_out_rating_voltage",           // DDD.D
-        "AC_out_rating_frequency",         // EE.E
-        "AC_out_rating_current",           // FF.F
-        "AC_out_rating_apparent_power",    // HHHH
-        "AC_out_rating_active_power",      // IIII
-        "Battery_rating_voltage",          // JJ.J
-        "Battery_re-charge_voltage",       // KK.K
-        "Battery_under_voltage",           // JJ.J
-        "Battery_bulk_voltage",            // KK.K
-        "Battery_float_voltage",           // LL.L
-        "Battery_type",                    // O
-        "Current_max_AC_charging_current", // PP
-        "Current_max_charging_current",    // QQ0
-        "Input_voltage_range",             // O
-        "Output_source_priority",          // P
-        "Charger_source_priority",         // Q
-        "Parallel_max_num",                // R
-        "Machine_type",                    // SS
-        "Topology",                        // T
-        "Output_mode",                     // U
-        "Battery_re-discharge_voltage",    // VV.V
-        "PV_OK_condition_for_parallel",    // W
-        "PV_power_balance",                // X
-        "Max_charging_time_at_CV_stage",   // YYY
-        "Operation_Logic",                 // Z
-        "Max_discharging_current",         // CCC
+DESCR_AC_In_Rating_Voltage,            // BBB.B
+DESCR_AC_In_Rating_Current,            // CC.C
+DESCR_AC_Out_Rating_Voltage,           // DDD.D
+DESCR_AC_Out_Rating_Frequency,         // EE.E
+DESCR_AC_Out_Rating_Current,           // FF.F
+DESCR_AC_Out_Rating_Apparent_Power,    // HHHH
+DESCR_AC_Out_Rating_Active_Power,      // IIII
+DESCR_Battery_Rating_Voltage,          // JJ.J
+DESCR_Battery_Recharge_Voltage,       // KK.K
+DESCR_Battery_Under_Voltage,           // JJ.J
+DESCR_Battery_Bulk_Voltage,            // KK.K
+DESCR_Battery_Float_Voltage,           // LL.L
+DESCR_Battery_Type,                    // O
+DESCR_Current_Max_AC_Charging_Current, // PP
+DESCR_Current_Max_Charging_Current,    // QQ0
+DESCR_Input_Voltage_Range,             // O
+DESCR_Output_Source_Priority,          // P
+DESCR_Charger_Source_Priority,         // Q
+DESCR_Parallel_Max_Num,                // R
+DESCR_Machine_Type,                    // SS
+DESCR_Topology,                        // T
+DESCR_Output_Mode,                     // U
+DESCR_Battery_Redischarge_Voltage,    // VV.V
+DESCR_PV_OK_Condition_For_Parallel,    // W
+DESCR_PV_Power_Balance,                // X
+DESCR_Max_Charging_Time_At_CV_Stage,   // YYY
+DESCR_Operation_Logic,                 // Z
+DESCR_Max_Discharging_Current,         // CCC
     },
     // [PI16]
     {
-        "AC_in_rating_voltage",            // BBB.B
-        "AC_in_rating_current",            // CC.C
-        "AC_out_rating_voltage",           // DDD.D
-        "AC_out_rating_frequency",         // EE.E
-        "AC_out_rating_current",           // FF.F
-        "AC_out_rating_apparent_power",    // HHHH
-        "AC_out_rating_active_power",      // IIII
-        "Battery_rating_voltage",          // JJ.J
-        "Battery_re-charge_voltage",       // KK.K
-        "Battery_under_voltage",           // JJ.J
-        "Battery_bulk_voltage",            // KK.K
-        "Battery_float_voltage",           // LL.L
-        "Battery_type",                    // O
-        "Current_max_AC_charging_current", // PP
-        "Current_max_charging_current",    // QQ0
-        "Input_voltage_range",             // O
-        "Output_source_priority",          // P
-        "Charger_source_priority",         // Q
-        "Parallel_max_num",                // R
-        "Machine_type",                    // SS
-        "Topology",                        // T
-        "Output_mode",                     // U
-        "Battery_re-discharge_voltage",    // VV.V
-        "PV_OK_condition_for_parallel",    // W
-        "PV_power_balance",                // X
-        "Max_charging_time_at_CV_stage",   // YYY
-        "Operation_Logic",                 // Z
-        "Max_discharging_current",         // CCC
+DESCR_AC_In_Rating_Voltage,            // BBB.B
+DESCR_AC_In_Rating_Current,            // CC.C
+DESCR_AC_Out_Rating_Voltage,           // DDD.D
+DESCR_AC_Out_Rating_Frequency,         // EE.E
+DESCR_AC_Out_Rating_Current,           // FF.F
+DESCR_AC_Out_Rating_Apparent_Power,    // HHHH
+DESCR_AC_Out_Rating_Active_Power,      // IIII
+DESCR_Battery_Rating_Voltage,          // JJ.J
+DESCR_Battery_Recharge_Voltage,       // KK.K
+DESCR_Battery_Under_Voltage,           // JJ.J
+DESCR_Battery_Bulk_Voltage,            // KK.K
+DESCR_Battery_Float_Voltage,           // LL.L
+DESCR_Battery_Type,                    // O
+DESCR_Current_Max_AC_Charging_Current, // PP
+DESCR_Current_Max_Charging_Current,    // QQ0
+DESCR_Input_Voltage_Range,             // O
+DESCR_Output_Source_Priority,          // P
+DESCR_Charger_Source_Priority,         // Q
+DESCR_Parallel_Max_Num,                // R
+DESCR_Machine_Type,                    // SS
+DESCR_Topology,                        // T
+DESCR_Output_Mode,                     // U
+DESCR_Battery_Redischarge_Voltage,    // VV.V
+DESCR_PV_OK_Condition_For_Parallel,    // W
+DESCR_PV_Power_Balance,                // X
+DESCR_Max_Charging_Time_At_CV_Stage,   // YYY
+DESCR_Operation_Logic,                 // Z
+DESCR_Max_Discharging_Current,         // CCC
     },
+};
+unsigned int qpiri_25_length = 25;
+const char *const qpiri_25[] = {
+    DESCR_AC_In_Rating_Voltage,            // BBB.B
+    DESCR_AC_In_Rating_Current,            // CC.C
+    DESCR_AC_Out_Rating_Voltage,           // DDD.D
+    DESCR_AC_Out_Rating_Frequency,         // EE.E
+    DESCR_AC_Out_Rating_Current,           // FF.F
+    DESCR_AC_Out_Rating_Apparent_Power,    // HHHH
+    DESCR_AC_Out_Rating_Active_Power,      // IIII
+    DESCR_Battery_Rating_Voltage,          // JJ.J
+    DESCR_Battery_Recharge_Voltage,        // KK.K
+    DESCR_Battery_Under_Voltage,           // JJ.J
+    DESCR_Battery_Bulk_Voltage,            // KK.K
+    DESCR_Battery_Float_Voltage,           // LL.L
+    DESCR_Battery_Type,                    // O
+    DESCR_Current_Max_AC_Charging_Current, // PP
+    DESCR_Current_Max_Charging_Current,    // QQ0
+    DESCR_Input_Voltage_Range,             // O
+    DESCR_Output_Source_Priority,          // P
+    DESCR_Charger_Source_Priority,         // Q
+    DESCR_Parallel_Max_Num,                // R
+    DESCR_Machine_Type,                    // SS
+    DESCR_Topology,                        // T
+    DESCR_Output_Mode,                     // U
+    DESCR_Battery_Redischarge_Voltage,     // VV.V
+    DESCR_PV_OK_Condition_For_Parallel,    // W
+    DESCR_PV_Power_Balance,                // X
+};
+unsigned int qpiri_21_length = 21;
+const char *const qpiri_21[] = {
+    // [PI30 REVO]
+    DESCR_AC_In_Rating_Voltage,            // BBB.B
+    DESCR_AC_In_Rating_Current,            // CC.C
+    DESCR_AC_Out_Rating_Voltage,           // DDD.D
+    DESCR_AC_Out_Rating_Frequency,         // EE.E
+    DESCR_AC_Out_Rating_Current,           // FF.F
+    DESCR_AC_Out_Rating_Apparent_Power,    // HHHH
+    DESCR_AC_Out_Rating_Active_Power,      // IIII
+    DESCR_Battery_Rating_Voltage,          // JJ.J
+    DESCR_Battery_Recharge_Voltage,        // KK.K
+    DESCR_Battery_Under_Voltage,           // JJ.J
+    DESCR_Battery_Bulk_Voltage,            // KK.K
+    DESCR_Battery_Float_Voltage,           // LL.L
+    DESCR_Battery_Type,                    // O
+    DESCR_Current_Max_AC_Charging_Current, // P0
+    DESCR_Current_Max_Charging_Current,    // Q0
+    DESCR_Input_Voltage_Range,             // O
+    DESCR_Output_Source_Priority,          // P
+    DESCR_Charger_Source_Priority,         // Q
+    DESCR_Parallel_Max_Num,                // R
+    DESCR_Machine_Type,                    // SS
+    DESCR_Topology,                        // T
 };
 static const char *const P007PIRI[][25] = {
     // [PI34 / MPPT-3000], [PI30 HS MS MSX], [PI30 Revo], [PI30 PIP], [PI41 / LV5048]
 
-    {"AC_in_rating_voltage", "10"},           // AAAA
-    {"AC_in_rating_current", "10"},           // BBB
-    {"AC_out_rating_voltage", "10"},          // CCCC
-    {"AC_out_rating_frequency", "10"},        // DDD
-    {"AC_out_rating_current", "10"},          // EEE
-    {"AC_out_rating_apparent_power", "0"},    // FFFF
-    {"AC_out_rating_active_power", "0"},      // IIII
-    {"Battery_rating_voltage", "10"},         // HHH
-    {"Battery_re-charge_voltage", "10"},      // III
-    {"Battery_re-discharge_voltage", "10"},   // JJJ
-    {"Battery_under_voltage", "10"},          // KKK
-    {"Battery_bulk_voltage", "10"},           // LLL
-    {"Battery_float_voltage", "10"},          // MMM
-    {"Battery_type", "0"},                    // N
-    {"Current_max_AC_charging_current", "0"}, // OO
-    {"Current_max_charging_current", "0"},    // PPP
-    {"Input_voltage_range", "0"},             // Q
-    {"Output_source_priority", "0"},          // R
-    {"Charger_source_priority", "0"},         // S
-    {"Parallel_max_num", "0"},                // T
-    {"Machine_type", "0"},                    // U
-    {"Topology", "0"},                        // V
-    {"Output_mode", "0"},                     // W
-    {"Solar_power_priority", "0"},            // Z
-    {"MPPT_string", "0"},                     // a
+    {DESCR_AC_In_Rating_Voltage, "10"},           // AAAA
+    {DESCR_AC_In_Rating_Current, "10"},           // BBB
+    {DESCR_AC_Out_Rating_Voltage, "10"},          // CCCC
+    {DESCR_AC_Out_Rating_Frequency, "10"},        // DDD
+    {DESCR_AC_Out_Rating_Current, "10"},          // EEE
+    {DESCR_AC_Out_Rating_Apparent_Power, "0"},    // FFFF
+    {DESCR_AC_Out_Rating_Active_Power, "0"},      // IIII
+    {DESCR_Battery_Rating_Voltage, "10"},         // HHH
+    {DESCR_Battery_Recharge_Voltage, "10"},      // III
+    {DESCR_Battery_Redischarge_Voltage, "10"},   // JJJ
+    {DESCR_Battery_Under_Voltage, "10"},          // KKK
+    {DESCR_Battery_Bulk_Voltage, "10"},           // LLL
+    {DESCR_Battery_Float_Voltage, "10"},          // MMM
+    {DESCR_Battery_Type, "0"},                    // N
+    {DESCR_Current_Max_AC_Charging_Current, "0"}, // OO
+    {DESCR_Current_Max_Charging_Current, "0"},    // PPP
+    {DESCR_Input_Voltage_Range, "0"},             // Q
+    {DESCR_Output_Source_Priority, "0"},          // R
+    {DESCR_Charger_Source_Priority, "0"},         // S
+    {DESCR_Parallel_Max_Num, "0"},                // T
+    {DESCR_Machine_Type, "0"},                    // U
+    {DESCR_Topology, "0"},                        // V
+    {DESCR_Output_Mode, "0"},                     // W
+    {DESCR_Solar_Power_Priority, "0"},            // Z
+    {DESCR_MPPT_String, "0"},                     // a
 };
 bool PI_Serial::PIXX_QPIRI()
 {
@@ -98,291 +151,285 @@ bool PI_Serial::PIXX_QPIRI()
     String commandAnswer = this->requestData("QPIRI");
     get.raw.qpiri = commandAnswer;
     // calculate the length with https://elmar-eigner.de/text-zeichen-laenge.html
-    if (commandAnswer == "NAK")
+    if (commandAnswer == DESCR_req_NAK || commandAnswer == DESCR_req_NOA)
     {
       return true;
     }
-    if (commandAnswer == "ERCRC")
+    if (commandAnswer == DESCR_req_ERCRC)
     {
       return false;
     }
-    if (commandAnswer.length() > 80 &&
-        commandAnswer.length() <= 108)
+    byte protocolNum = 0;
+    const char *const *qpiriMap = qpiriList[protocolNum];
+    unsigned int qpiriMapLength = sizeof qpiriList[protocolNum] / sizeof qpiriList[protocolNum][0];
+    char bufQPIRI[256];
+    commandAnswer.toCharArray(bufQPIRI, sizeof(bufQPIRI));
+    char *fieldsQPIRI[30];
+    int StringCount = pi_split_fields(bufQPIRI, delimiter[0], fieldsQPIRI, 30);
+
+    if (StringCount >= (int)qpiriMapLength)
     {
+      qpiriMap = qpiriList[protocolNum];
+      qpiriMapLength = sizeof qpiriList[protocolNum] / sizeof qpiriList[protocolNum][0];
+    }
+    else if (StringCount >= (int)qpiri_25_length)
+    {
+      qpiriMap = qpiri_25;
+      qpiriMapLength = qpiri_25_length;
+    }
+    else if (StringCount >= (int)qpiri_21_length)
+    {
+      qpiriMap = qpiri_21;
+      qpiriMapLength = qpiri_21_length;
+    }
+    else
+    {
+      get.raw.qpiri = "Wrong Field Count(" + (String)StringCount + "), Contact Dev:" + get.raw.qpiri;
+      return true;
+    }
 
-      byte protocolNum = 0;
-      String strs[30];
-      // Split the string into substrings
-      int StringCount = 0;
-      while (commandAnswer.length() > 0)
-      {
-        int index = commandAnswer.indexOf(delimiter);
-        if (index == -1) // No space found
-        {
-          strs[StringCount++] = commandAnswer;
-          break;
-        }
-        else
-        {
-          strs[StringCount++] = commandAnswer.substring(0, index);
-          commandAnswer = commandAnswer.substring(index + 1);
-        }
-      }
+    for (unsigned int i = 0; i < qpiriMapLength && i < (unsigned int)StringCount; i++)
+    {
+      if (fieldsQPIRI[i] && fieldsQPIRI[i][0] != '\0' && strcmp(qpiriMap[i], "") != 0)
+        staticData[qpiriMap[i]] = pi_parse_float2(fieldsQPIRI[i]);
+    }
 
-      for (unsigned int i = 0; i < sizeof qpiriList[protocolNum] / sizeof qpiriList[protocolNum][0]; i++)
-      {
-        if (!strs[i].isEmpty() && strcmp(qpiriList[protocolNum][i], "") != 0)
-          staticData[qpiriList[protocolNum][i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-      }
-
-      switch ((byte)staticData["Battery_type"].as<unsigned int>())
+      switch ((byte)staticData[DESCR_Battery_Type].as<unsigned int>())
       {
       case 0:
-        staticData["Battery_type"] = "AGM";
+        staticData[DESCR_Battery_Type] = "AGM";
         break;
       case 1:
-        staticData["Battery_type"] = "Flooded";
+        staticData[DESCR_Battery_Type] = "Flooded";
         break;
       case 2:
-        staticData["Battery_type"] = "User";
+        staticData[DESCR_Battery_Type] = "User";
         break;
       default:
         break;
       }
-      switch ((byte)staticData["Input_voltage_range"].as<unsigned int>())
+      switch ((byte)staticData[DESCR_Input_Voltage_Range].as<unsigned int>())
       {
       case 0:
-        staticData["Input_voltage_range"] = "Appliance";
+        staticData[DESCR_Input_Voltage_Range] = "Appliance";
         break;
       case 1:
-        staticData["Input_voltage_range"] = "UPS";
+        staticData[DESCR_Input_Voltage_Range] = "UPS";
         break;
       default:
         break;
       }
-      switch ((byte)staticData["Output_source_priority"].as<unsigned int>())
+      switch ((byte)staticData[DESCR_Output_Source_Priority].as<unsigned int>())
       {
       case 0:
-        staticData["Output_source_priority"] = "Utility first";
+        staticData[DESCR_Output_Source_Priority] = "Utility first";
         break;
       case 1:
-        staticData["Output_source_priority"] = "Solar first";
+        staticData[DESCR_Output_Source_Priority] = "Solar first";
         break;
       case 2:
-        staticData["Output_source_priority"] = "SBU first";
+        staticData[DESCR_Output_Source_Priority] = "SBU first";
         break;
       default:
         break;
       }
-      switch ((byte)staticData["Charger_source_priority"].as<unsigned int>())
+      switch ((byte)staticData[DESCR_Charger_Source_Priority].as<unsigned int>())
       {
       case 0:
-        staticData["Charger_source_priority"] = "Utility first";
+        staticData[DESCR_Charger_Source_Priority] = "Utility first";
         break;
       case 1:
-        staticData["Charger_source_priority"] = "Solar first";
+        staticData[DESCR_Charger_Source_Priority] = "Solar first";
         break;
       case 2:
-        staticData["Charger_source_priority"] = "Solar + Utility";
+        staticData[DESCR_Charger_Source_Priority] = "Solar + Utility";
         break;
       case 3:
-        staticData["Charger_source_priority"] = "Only solar charging permitted";
+        staticData[DESCR_Charger_Source_Priority] = "Only solar charging permitted";
         break;
       default:
         break;
       }
-      switch ((byte)staticData["Machine_type"].as<unsigned int>())
+      switch ((byte)staticData[DESCR_Machine_Type].as<unsigned int>())
       {
       case 00:
-        staticData["Machine_type"] = "Grid tie";
+        staticData[DESCR_Machine_Type] = "Grid tie";
         break;
       case 01:
-        staticData["Machine_type"] = "Off Grid";
+        staticData[DESCR_Machine_Type] = "Off Grid";
         break;
       case 10:
-        staticData["Machine_type"] = "Hybrid";
+        staticData[DESCR_Machine_Type] = "Hybrid";
         break;
       default:
         break;
       }
-      switch ((byte)staticData["Topology"])
+      switch ((byte)staticData[DESCR_Topology])
       {
       case 0:
-        staticData["Topology"] = "Transformerless";
+        staticData[DESCR_Topology] = "Transformerless";
         break;
       case 1:
-        staticData["Topology"] = "Transformer";
+        staticData[DESCR_Topology] = "Transformer";
         break;
       default:
         break;
         return true;
       }
-      return true;
-    }
     return true;
   }
   else if (protocol == PI18)
   {
     String commandAnswer = this->requestData("^P007PIRI");
     get.raw.qpiri = commandAnswer;
-    if (commandAnswer == "NAK")
+    if (commandAnswer == DESCR_req_NAK || commandAnswer == DESCR_req_NOA)
     {
       return true;
     }
-    if (commandAnswer == "ERCRC")
+    if (commandAnswer == DESCR_req_ERCRC)
     {
       return false;
     }
-    if (commandAnswer.length() > 80 &&
-        commandAnswer.length() < 105)
+    char bufP007[256];
+    commandAnswer.toCharArray(bufP007, sizeof(bufP007));
+    char *fieldsP007[30];
+    int StringCount = pi_split_fields(bufP007, delimiter[0], fieldsP007, 30);
+
+    if (StringCount < (int)(sizeof P007PIRI / sizeof P007PIRI[0]))
     {
-      String strs[30];
-      // Split the string into substrings
-      int StringCount = 0;
-      while (commandAnswer.length() > 0)
+      get.raw.qpiri = "Wrong Field Count(" + (String)StringCount + "), Contact Dev:" + get.raw.qpiri;
+      return true;
+    }
+
+    for (unsigned int i = 0; i < sizeof P007PIRI[0] / sizeof P007PIRI[0][0] && i < (unsigned int)StringCount; i++)
+    {
+      if (fieldsP007[i] && fieldsP007[i][0] != '\0' && strcmp(P007PIRI[i][0], "") != 0)
       {
-        int index = commandAnswer.indexOf(delimiter);
-        if (index == -1) // No space found
+        int divisor = atoi(P007PIRI[i][1]);
+        if (divisor > 0)
         {
-          strs[StringCount++] = commandAnswer;
-          break;
+          double val = pi_parse_double(fieldsP007[i]) / divisor;
+          staticData[P007PIRI[i][0]] = (int)(val * 100 + 0.5) / 100.0;
+        }
+        else if (divisor == 0)
+        {
+          staticData[P007PIRI[i][0]] = atoi(fieldsP007[i]);
         }
         else
         {
-          strs[StringCount++] = commandAnswer.substring(0, index);
-          commandAnswer = commandAnswer.substring(index + 1);
+          staticData[P007PIRI[i][0]] = fieldsP007[i];
         }
+        // staticData[qpiriList[0][i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
       }
+    }
 
-      for (unsigned int i = 0; i < sizeof P007PIRI[0] / sizeof P007PIRI[0][0]; i++)
-      {
-        if (!strs[i].isEmpty() && strcmp(P007PIRI[i][0], "") != 0)
-        {
-          if (atoi(P007PIRI[i][1]) > 0)
-          {
-            staticData[P007PIRI[i][0]] = (int)((strs[i].toFloat() / atoi(P007PIRI[i][1])) * 100 + 0.5) / 100.0;
-          }
-          else if (atoi(P007PIRI[i][1]) == 0)
-          {
-            staticData[P007PIRI[i][0]] = strs[i].toInt();
-          }
-          else
-          {
-            staticData[P007PIRI[i][0]] = strs[i];
-          }
-          // staticData[qpiriList[0][i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-        }
-      }
-
-      switch ((byte)staticData["Battery_type"].as<unsigned int>())
-      {
-      case 0:
-        staticData["Battery_type"] = "AGM";
-        break;
-      case 1:
-        staticData["Battery_type"] = "Flooded";
-        break;
-      case 2:
-        staticData["Battery_type"] = "User";
-        break;
-      default:
-        break;
-      }
-      switch ((byte)staticData["Input_voltage_range"].as<unsigned int>())
-      {
-      case 0:
-        staticData["Input_voltage_range"] = "Appliance";
-        break;
-      case 1:
-        staticData["Input_voltage_range"] = "UPS";
-        break;
-      default:
-        break;
-      }
-      switch ((byte)staticData["Output_source_priority"].as<unsigned int>())
-      {
-      case 0:
-        staticData["Output_source_priority"] = "Solar-Utility-Battery";
-        break;
-      case 1:
-        staticData["Output_source_priority"] = "Solar-Battery-Utility";
-        break;
-      default:
-        break;
-      }
-      switch ((byte)staticData["Charger_source_priority"].as<unsigned int>())
-      {
-      case 0:
-        staticData["Charger_source_priority"] = "Solar first";
-        break;
-      case 1:
-        staticData["Charger_source_priority"] = "Solar and Utility";
-        break;
-      case 2:
-        staticData["Charger_source_priority"] = "Only solar";
-        break;
-      default:
-        break;
-      }
-      switch ((byte)staticData["Machine_type"].as<unsigned int>())
-      {
-      case 0:
-        staticData["Machine_type"] = "Off-grid Tie";
-        break;
-      case 1:
-        staticData["Machine_type"] = "Grid-Tie";
-        break;
-      default:
-        break;
-      }
-      switch ((byte)staticData["Topology"])
-      {
-      case 0:
-        staticData["Topology"] = "Transformerless";
-        break;
-      case 1:
-        staticData["Topology"] = "Transformer";
-        break;
-      default:
-        break;
-        return true;
-      }
-      switch ((byte)staticData["Output_mode"].as<unsigned int>())
-      {
-      case 0:
-        staticData["Output_mode"] = "Single module";
-        break;
-      case 1:
-        staticData["Output_mode"] = "parallel output";
-        break;
-      case 2:
-        staticData["Output_mode"] = "Phase 1 of three phase output";
-        break;
-      case 3:
-        staticData["Output_mode"] = "Phase 2 of three phase output";
-        break;
-      case 4:
-        staticData["Output_mode"] = "Phase 3 of three phase";
-        break;
-      default:
-        break;
-        return true;
-      }
-      switch ((byte)staticData["Solar_power_priority"].as<unsigned int>())
-      {
-      case 0:
-        staticData["Solar_power_priority"] = "Battery-Load-Utility";
-        break;
-      case 1:
-        staticData["Solar_power_priority"] = "Load-Battery-Utility";
-        break;
-      default:
-        break;
-        return true;
-      }
-
+    switch ((byte)staticData[DESCR_Battery_Type].as<unsigned int>())
+    {
+    case 0:
+      staticData[DESCR_Battery_Type] = "AGM";
+      break;
+    case 1:
+      staticData[DESCR_Battery_Type] = "Flooded";
+      break;
+    case 2:
+      staticData[DESCR_Battery_Type] = "User";
+      break;
+    default:
+      break;
+    }
+    switch ((byte)staticData[DESCR_Input_Voltage_Range].as<unsigned int>())
+    {
+    case 0:
+      staticData[DESCR_Input_Voltage_Range] = "Appliance";
+      break;
+    case 1:
+      staticData[DESCR_Input_Voltage_Range] = "UPS";
+      break;
+    default:
+      break;
+    }
+    switch ((byte)staticData[DESCR_Output_Source_Priority].as<unsigned int>())
+    {
+    case 0:
+      staticData[DESCR_Output_Source_Priority] = "Solar-Utility-Battery";
+      break;
+    case 1:
+      staticData[DESCR_Output_Source_Priority] = "Solar-Battery-Utility";
+      break;
+    default:
+      break;
+    }
+    switch ((byte)staticData[DESCR_Charger_Source_Priority].as<unsigned int>())
+    {
+    case 0:
+      staticData[DESCR_Charger_Source_Priority] = "Solar first";
+      break;
+    case 1:
+      staticData[DESCR_Charger_Source_Priority] = "Solar and Utility";
+      break;
+    case 2:
+      staticData[DESCR_Charger_Source_Priority] = "Only solar";
+      break;
+    default:
+      break;
+    }
+    switch ((byte)staticData[DESCR_Machine_Type].as<unsigned int>())
+    {
+    case 0:
+      staticData[DESCR_Machine_Type] = "Off-grid Tie";
+      break;
+    case 1:
+      staticData[DESCR_Machine_Type] = "Grid-Tie";
+      break;
+    default:
+      break;
+    }
+    switch ((byte)staticData[DESCR_Topology])
+    {
+    case 0:
+      staticData[DESCR_Topology] = "Transformerless";
+      break;
+    case 1:
+      staticData[DESCR_Topology] = "Transformer";
+      break;
+    default:
+      break;
       return true;
     }
+    switch ((byte)staticData[DESCR_Output_Mode].as<unsigned int>())
+    {
+    case 0:
+      staticData[DESCR_Output_Mode] = "Single module";
+      break;
+    case 1:
+      staticData[DESCR_Output_Mode] = "parallel output";
+      break;
+    case 2:
+      staticData[DESCR_Output_Mode] = "Phase 1 of three phase output";
+      break;
+    case 3:
+      staticData[DESCR_Output_Mode] = "Phase 2 of three phase output";
+      break;
+    case 4:
+      staticData[DESCR_Output_Mode] = "Phase 3 of three phase";
+      break;
+    default:
+      break;
+      return true;
+    }
+    switch ((byte)staticData[DESCR_Solar_Power_Priority].as<unsigned int>())
+    {
+    case 0:
+      staticData[DESCR_Solar_Power_Priority] = "Battery-Load-Utility";
+      break;
+    case 1:
+      staticData[DESCR_Solar_Power_Priority] = "Load-Battery-Utility";
+      break;
+    default:
+      break;
+      return true;
+    }
+
     return true;
   }
   else if (protocol == NoD)

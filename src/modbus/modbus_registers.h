@@ -1,10 +1,11 @@
 #ifndef SRC_MODBUS_REGISTERS_H_
 #define SRC_MODBUS_REGISTERS_H_
 #include "Arduino.h"
+#include <ArduinoJson.h>
 
 typedef enum
 {
-    MODBUS_TYPE_HOLDING = 0x00, /*!< Modbus Holding register. */ 
+    MODBUS_TYPE_HOLDING = 0x00, /*!< Modbus Holding register. */
     //    MODBUS_TYPE_INPUT,                  /*!< Modbus Input register. */
     //    MODBUS_TYPE_COIL,                   /*!< Modbus Coils. */
     //    MODBUS_TYPE_DISCRETE,               /*!< Modbus Discrete bits. */
@@ -15,86 +16,49 @@ typedef enum
 typedef enum
 {
     //    REGISTER_TYPE_U8 = 0x00,                   /*!< Unsigned 8 */
-    REGISTER_TYPE_U16 = 0x01,   /*!< Unsigned 16 */
-    REGISTER_TYPE_INT16 = 0x02, /*!< Signed 16 */
-                                //    REGISTER_TYPE_U32 = 0x02,                  /*!< Unsigned 32 */
-                                //    REGISTER_TYPE_FLOAT = 0x03,                /*!< Float type */
-    REGISTER_TYPE_ASCII = 0x04, /*!< ASCII type */
-    REGISTER_TYPE_DIEMATIC_ONE_DECIMAL = 0x05,
-    REGISTER_TYPE_DIEMATIC_TWO_DECIMAL = 0x06,
-    REGISTER_TYPE_BITFIELD = 0x07,
-    REGISTER_TYPE_DEBUG = 0x08,
-    REGISTER_TYPE_CUSTOM_VAL_NAME = 0x09,
+    REGISTER_TYPE_U16,             /*!< Unsigned 16 */
+    REGISTER_TYPE_INT16,           /*!< Signed 16 */
+    REGISTER_TYPE_U32,             /*!< Unsigned 32 */
+    REGISTER_TYPE_U32_ONE_DECIMAL, /*!< Unsigned 32 multiply 0.1*/ 
+    REGISTER_TYPE_ASCII,           /*!< ASCII type */
+    REGISTER_TYPE_DIEMATIC_ONE_DECIMAL,
+    REGISTER_TYPE_DIEMATIC_TWO_DECIMAL,
+    REGISTER_TYPE_BITFIELD,
+    REGISTER_TYPE_DEBUG,
+    REGISTER_TYPE_CUSTOM_VAL_NAME,
+    REGISTER_TYPE_CALLBACK,         /*call custom callback after register read*/
+    REGISTER_TYPE_VIRTUAL_CALLBACK, /*allows to call callback without register read*/
 } register_type_t;
+
+
 
 typedef union
 {
     const char *bitfield[16];
 } optional_param_t;
+ 
+class MODBUS_COM;
 
-typedef struct
+typedef void (*modbus_callback_t)( JsonObject *variant, uint16_t *registerValue, const struct modbus_register_t *reg, MODBUS_COM &mCom); // Define a function pointer type for the callback
+
+typedef struct modbus_register_t 
 {
     uint16_t id;
     modbus_entity_t modbus_entity; /*!< Type of modbus parameter */
     register_type_t type;          /*!< Float, U8, U16, U32, ASCII, etc. */
     const char *name;
+    int16_t offset = 0;
     optional_param_t optional_param;
+    modbus_callback_t callback; 
 } modbus_register_t;
 
-const modbus_register_t registers_live[] = {
 
-    {25201, MODBUS_TYPE_HOLDING, REGISTER_TYPE_CUSTOM_VAL_NAME, "Inverter_Operation_Mode", {.bitfield = {
-                                                                                                "Power On",
-                                                                                                "Self Test",
-                                                                                                "OffGrid",
-                                                                                                "GridTie",
-                                                                                                "ByPass",
-                                                                                                "Stop",
-                                                                                                "GridCharging",
-                                                                                            }}},
-
-    {25205, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_ONE_DECIMAL, "Battery_Voltage"}, 
-    {25206, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_ONE_DECIMAL, "AC_out_Voltage"},
-    {25207, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_ONE_DECIMAL, "AC_in_Voltage"},
-    {25208, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_ONE_DECIMAL, "Inverter_Bus_Voltage"},
-    {25225, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_TWO_DECIMAL, "AC_out_Frequenz"},
-    {25226, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_TWO_DECIMAL, "AC_in_Frequenz"},
-
-    {25216, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "Output_load_percent"},
-    {15205, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_ONE_DECIMAL, "PV_Input_Voltage"},
-    {15208, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "PV_Charging_Power"},
-    {15207, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_ONE_DECIMAL, "PV_Input_Current"},
-    {25233, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "Inverter_Bus_Temperature"},
-    {25234, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "Transformer_temperature"},
-    {15209, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "MPPT1_Charger_Temperature"},
-
-    {25215, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "AC_out_Watt"}, //W
-    {25216, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "AC_out_percent"}, //%
-
-     {25274, MODBUS_TYPE_HOLDING, REGISTER_TYPE_INT16, "Battery_Load"},
-};
-
-const modbus_register_t registers_static[] = {
-
-    {10110, MODBUS_TYPE_HOLDING, REGISTER_TYPE_CUSTOM_VAL_NAME, "Battery_type", {.bitfield = {
-                                                                                                "No choose",
-                                                                                                "User defined",
-                                                                                                "Lithium",
-                                                                                                "Sealed Lead",
-                                                                                                "AGM",
-                                                                                                "GEL",
-                                                                                                "Flooded", 
-                                                                                            }}},
-    {10103, MODBUS_TYPE_HOLDING, REGISTER_TYPE_DIEMATIC_ONE_DECIMAL, "Battery_float_voltage"},                        
-};
-
-
-#define DEVICE_MODEL_HIGH "Device_Model_Hight"
-#define DEVICE_MODEL_LOW "Device_Model_Low"
-
-const modbus_register_t registers_device_model[] = { 
-    {20000, MODBUS_TYPE_HOLDING, REGISTER_TYPE_ASCII, "Device_Model_Hight"},
-    {20001, MODBUS_TYPE_HOLDING, REGISTER_TYPE_U16, "Device_Model_Low"}
-};
+typedef struct
+{
+    JsonObject *variant;
+    const modbus_register_t *registers;
+    size_t array_size;
+    size_t curr_register;
+} modbus_register_info_t;
 
 #endif // SRC_MODBUS_REGISTERS_H_

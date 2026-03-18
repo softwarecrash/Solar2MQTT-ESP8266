@@ -1,0 +1,74 @@
+
+<figure class="text-center">
+  <h1>Debug</h1>
+</figure>
+<p class="text-center">
+  Bridge TX and RX on the inverter port, then click Start.
+</p>
+
+<div class="d-grid gap-2">
+  <button class="btn btn-primary" id="loopbackBtn" onclick="runLoopback()">Start Loopback Test</button>
+  <a class="btn btn-primary" href="/debug/download" role="button" download>Download Debug Data</a>
+  <div id="loopbackResult" class="text-center"></div>
+  <a class="btn btn-primary" href="/webserial" role="button" target="_blank">WebSerial</a>
+  <a class="btn btn-primary" href="/settings" role="button">Back</a>
+</div>
+
+<script>
+  var loopbackPoll = null;
+
+  function setResult(msg, ok) {
+    var el = document.getElementById('loopbackResult');
+    el.innerHTML = msg;
+    el.style.color = ok ? 'green' : 'red';
+  }
+
+  function stopPoll() {
+    if (loopbackPoll) {
+      clearInterval(loopbackPoll);
+      loopbackPoll = null;
+    }
+  }
+
+  function checkLoopback() {
+    fetch('/debug/loopback-status')
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        if (data.done) {
+          setResult(data.message, data.ok);
+          document.getElementById('loopbackBtn').disabled = false;
+          stopPoll();
+        }
+      })
+      .catch(function () {
+        setResult('Loopback status failed', false);
+        document.getElementById('loopbackBtn').disabled = false;
+        stopPoll();
+      });
+  }
+
+  function runLoopback() {
+    var btn = document.getElementById('loopbackBtn');
+    btn.disabled = true;
+    setResult('Running...', true);
+    fetch('/debug/loopback-test')
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        if (!data.started) {
+          setResult(data.message, false);
+          btn.disabled = false;
+          return;
+        }
+        stopPoll();
+        loopbackPoll = setInterval(checkLoopback, 500);
+      })
+      .catch(function () {
+        setResult('Loopback failed', false);
+        btn.disabled = false;
+        stopPoll();
+      });
+  }
+
+</script>
+
+

@@ -1,20 +1,83 @@
-#include "SoftwareSerial.h"
 #ifndef PI_SERIAL_H
 #define PI_SERIAL_H
-#include "vector"
+#include "descriptors.h"
+#include "SoftwareSerial.h"
+#include <stdlib.h>
+#include <string.h>
+
+#define ARDUINOJSON_USE_DOUBLE 1
+#define ARDUINOJSON_USE_LONG_LONG 1
+//#define ARDUINOJSON_ENABLE_PROGMEM 1
 #include <ArduinoJson.h>
 #include <modbus/modbus.h>
+
 extern JsonObject deviceJson;
 extern JsonObject staticData;
 extern JsonObject liveData;
 
+static inline int pi_split_fields(char *buf, char delim, char *fields[], int maxFields)
+{
+    int count = 0;
+    if (!buf || maxFields <= 0)
+    {
+        return 0;
+    }
+    char *p = buf;
+    while (*p && count < maxFields)
+    {
+        while (*p == delim)
+        {
+            ++p;
+        }
+        if (!*p)
+        {
+            break;
+        }
+        fields[count++] = p;
+        while (*p && *p != delim)
+        {
+            ++p;
+        }
+        if (*p == delim)
+        {
+            *p = '\0';
+            ++p;
+        }
+    }
+    return count;
+}
+
+static inline double pi_parse_float2(const char *s)
+{
+    if (!s || *s == '\0')
+    {
+        return 0.0;
+    }
+    char *endptr = nullptr;
+    double v = strtod(s, &endptr);
+    if (v >= 0.0)
+    {
+        return (int)(v * 100.0 + 0.5) / 100.0;
+    }
+    return (int)(v * 100.0 - 0.5) / 100.0;
+}
+
+static inline double pi_parse_double(const char *s)
+{
+    if (!s || *s == '\0')
+    {
+        return 0.0;
+    }
+    return strtod(s, nullptr);
+}
+  
 class PI_Serial
 {
 public:
     const char *startChar = "(";
     const char *delimiter = " ";
     bool requestStaticData = true;
-    byte protocol = NoD;
+    protocol_type_t protocol = NoD;
     bool connection = false;
 
     struct
@@ -76,6 +139,15 @@ public:
     String sendCommand(String command);
 
     /**
+     * @brief Run a serial TX/RX loopback test.
+     */
+    bool loopbackTest(String &details);
+
+    void setSuspend(bool enabled);
+    bool isSuspended() const;
+    bool isBusy() const;
+
+    /**
      * @brief
      *
      */
@@ -88,16 +160,13 @@ public:
     void callback(std::function<void()> func);
     std::function<void()> requestCallback;
 
-    enum protocolType
-    {
-        NoD,
-        PI18,
-        PI30,
-        MODBUS_MUST
-    };
+ 
 
 private: 
     unsigned int serialIntfBaud;
+    volatile uint8_t busyCount = 0;
+    volatile bool suspendSerial = false;
+    volatile bool abortAutoDetect = false;
 
     unsigned long previousTime = 0;
     unsigned long delayTime = 100;
@@ -109,17 +178,19 @@ private:
     
     String customCommandBuffer;
 
-    MODBUS *modbus;
+    MODBUS *modbus = nullptr;
 
     /**
      * @brief get the crc from a string
      */
     uint16_t getCRC(String data);
+    uint16_t getCRC(const char *data, size_t len);
 
     /**
      * @brief get the crc from a string
      */
     byte getCHK(String data);
+    byte getCHK(const char *data, size_t len);
 
     /**
      * @brief function for autodetect the inverter

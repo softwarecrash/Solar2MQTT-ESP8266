@@ -25,6 +25,28 @@ extern void writeLog(const char *format, ...);
 PI_Serial::PI_Serial(int rx, int tx)
 {
     this->my_serialIntf = new SoftwareSerial(rx, tx, false); // init pins
+    serialIntfBaud = 2400;
+    get.raw.qpi.reserve(8);
+    get.raw.qall.reserve(80);
+    get.raw.qpiri.reserve(96);
+    get.raw.qmn.reserve(48);
+    get.raw.qflag.reserve(24);
+    get.raw.q1.reserve(64);
+    get.raw.qpigs.reserve(96);
+    get.raw.qpigs2.reserve(24);
+    get.raw.qmod.reserve(8);
+    get.raw.qt.reserve(12);
+    get.raw.qet.reserve(12);
+    get.raw.qey.reserve(12);
+    get.raw.qem.reserve(12);
+    get.raw.qed.reserve(12);
+    get.raw.qlt.reserve(12);
+    get.raw.qly.reserve(12);
+    get.raw.qlm.reserve(12);
+    get.raw.qld.reserve(12);
+    get.raw.commandAnswer.reserve(96);
+    get.raw.qpiws.reserve(48);
+    customCommandBuffer.reserve(32);
 }
 
 bool PI_Serial::Init()
@@ -52,6 +74,10 @@ bool PI_Serial::Init()
 
 bool PI_Serial::loop()
 {
+    if (suspendSerial)
+    {
+        return false;
+    }
     if (millis() - previousTime > delayTime)
     {
         if (protocol != NoD)
@@ -158,23 +184,100 @@ String PI_Serial::sendCommand(String command)
     customCommandBuffer = command;
     return command;
 }
+
+bool PI_Serial::loopbackTest(String &details)
+{
+    details = "";
+    if (this->my_serialIntf == nullptr)
+    {
+        details = "No serial interface";
+        return false;
+    }
+
+    unsigned int baud = serialIntfBaud == 0 ? 2400 : serialIntfBaud;
+    this->my_serialIntf->begin(baud, SWSERIAL_8N1);
+    this->my_serialIntf->setTimeout(200);
+    this->my_serialIntf->enableTx(true);
+
+    while (this->my_serialIntf->available() > 0)
+    {
+        this->my_serialIntf->read();
+    }
+
+    const char *pattern = "S2MQT";
+    const size_t patternLen = strlen(pattern);
+    this->my_serialIntf->write(reinterpret_cast<const uint8_t *>(pattern), patternLen);
+    this->my_serialIntf->flush();
+    this->my_serialIntf->enableTx(false);
+    delay(20);
+
+    char buffer[8] = {};
+    size_t readLen = this->my_serialIntf->readBytes(buffer, patternLen);
+    bool ok = (readLen == patternLen && memcmp(buffer, pattern, patternLen) == 0);
+    details = ok ? "Loopback OK" : "Loopback failed";
+    return ok;
+}
+
+void PI_Serial::setSuspend(bool enabled)
+{
+    suspendSerial = enabled;
+    if (enabled)
+    {
+        abortAutoDetect = true;
+    }
+    else
+    {
+        abortAutoDetect = false;
+    }
+}
+
+bool PI_Serial::isSuspended() const
+{
+    return suspendSerial;
+}
+
+bool PI_Serial::isBusy() const
+{
+    return busyCount > 0;
+}
 //----------------------------------------------------------------------
 // Private Functions
 //----------------------------------------------------------------------
 void PI_Serial::autoDetect() // function for autodetect the inverter type
 {
-    String protocolName = "not found";
+    busyCount++;
+    if (abortAutoDetect || suspendSerial)
+    {
+        writeLog("Autodetect aborted");
+        goto autodetect_done;
+    }
+    protocol = NoD;
+    if (modbus != nullptr)
+    {
+        delete modbus;
+        modbus = nullptr;
+    }
     writeLog("----------------- Start Autodetect -----------------");
     for (size_t i = 0; i < 3; i++) // try 3 times to detect the inverter
     {
+        if (abortAutoDetect || suspendSerial)
+        {
+            writeLog("Autodetect aborted");
+            goto autodetect_done;
+        }
         writeLog("Try Autodetect Protocol");
 
         startChar = "(";
         serialIntfBaud = 2400;
         this->my_serialIntf->begin(serialIntfBaud, SWSERIAL_8N1);
-        String qpi = this->requestData("QPI");
-        writeLog("QPI:\t\t%s (Length: %d)", qpi, qpi.length());
-        if (qpi != "" && qpi.substring(0, 2) == "PI")
+        get.raw.qpi = this->requestData("QPI");
+        writeLog("QPI:\t\t%s (Length: %d)", get.raw.qpi, get.raw.qpi.length());
+        if (abortAutoDetect || suspendSerial)
+        {
+            writeLog("Autodetect aborted");
+            goto autodetect_done;
+        }
+        if (get.raw.qpi != "" && get.raw.qpi.substring(0, 2) == "PI")
         {
             writeLog("<Autodetect> Match protocol: PI3X");
             delimiter = " ";
@@ -183,9 +286,14 @@ void PI_Serial::autoDetect() // function for autodetect the inverter type
         }
         startChar = "^Dxxx";
         this->my_serialIntf->begin(serialIntfBaud, SWSERIAL_8N1);
-        String P005PI = this->requestData("^P005PI");
-        writeLog("^P005PI:\t\t%s (Length: %d)", P005PI, P005PI.length());
-        if (P005PI != "" && P005PI == "18")
+        get.raw.qpi = this->requestData("^P005PI");
+        writeLog("^P005PI:\t\t%s (Length: %d)", get.raw.qpi, get.raw.qpi.length());
+        if (abortAutoDetect || suspendSerial)
+        {
+            writeLog("Autodetect aborted");
+            goto autodetect_done;
+        }
+        if (get.raw.qpi != "" && get.raw.qpi == "18")
         {
             writeLog("<Autodetect> Match protocol: PI18");
             delimiter = ",";
@@ -195,15 +303,26 @@ void PI_Serial::autoDetect() // function for autodetect the inverter type
         this->my_serialIntf->end();
     }
     this->my_serialIntf->end();
-    if (protocol == NoD)
+    if (protocol == NoD && !abortAutoDetect && !suspendSerial)
     {
         modbus = new MODBUS(this->my_serialIntf);
-        modbus->Init();
-        if (modbus->autoDetect()){
-            protocol = MODBUS_MUST;
+        if (modbus != nullptr)
+        {
+            modbus->Init();
+            protocol = modbus->autoDetect();
+            if (protocol == NoD)
+            {
+                delete modbus;
+                modbus = nullptr;
+            }
         }
     } 
     writeLog("----------------- End Autodetect -----------------");
+autodetect_done:
+    if (busyCount > 0)
+    {
+        busyCount--;
+    }
 }
 
 bool PI_Serial::sendCustomCommand()
@@ -227,9 +346,11 @@ String PI_Serial::requestData(String command)
 {
 
     String commandBuffer = "";
+    commandBuffer.reserve(128);
     uint16_t crcCalc = 0;
     uint16_t crcRecive = 0;
 
+    busyCount++;
     this->my_serialIntf->write(command.c_str());
     this->my_serialIntf->write(highByte(getCRC(command)));
     this->my_serialIntf->write(lowByte(getCRC(command)));
@@ -242,37 +363,43 @@ String PI_Serial::requestData(String command)
     commandBuffer = this->my_serialIntf->readStringUntil('\r');
     this->my_serialIntf->enableTx(false);
 
-    if (getCRC(commandBuffer.substring(0, commandBuffer.length() - 2)) == 256U * (uint8_t)commandBuffer[commandBuffer.length() - 2] + (uint8_t)commandBuffer[commandBuffer.length() - 1] &&
-        getCRC(commandBuffer.substring(0, commandBuffer.length() - 2)) != 0 && 256U * (uint8_t)commandBuffer[commandBuffer.length() - 2] + (uint8_t)commandBuffer[commandBuffer.length() - 1] != 0)
+    const size_t cbLen = commandBuffer.length();
+    const char *cbBuf = commandBuffer.c_str();
+    if (cbLen >= 3 &&
+        getCRC(cbBuf, cbLen - 2) == 256U * (uint8_t)commandBuffer[cbLen - 2] + (uint8_t)commandBuffer[cbLen - 1] &&
+        getCRC(cbBuf, cbLen - 2) != 0 && 256U * (uint8_t)commandBuffer[cbLen - 2] + (uint8_t)commandBuffer[cbLen - 1] != 0)
     {
-        crcCalc = 256U * (uint8_t)commandBuffer[commandBuffer.length() - 2] + (uint8_t)commandBuffer[commandBuffer.length() - 1];
-        crcRecive = getCRC(commandBuffer.substring(0, commandBuffer.length() - 2));
-        commandBuffer.remove(commandBuffer.length() - 2); // remove the crc
+        crcCalc = 256U * (uint8_t)commandBuffer[cbLen - 2] + (uint8_t)commandBuffer[cbLen - 1];
+        crcRecive = getCRC(cbBuf, cbLen - 2);
+        commandBuffer.remove(cbLen - 2); // remove the crc
         commandBuffer.remove(0, strlen(startChar));       // remove the start char ( for Pi30 and ^Dxxx for Pi18
 
         // requestOK++;
         connectionCounter = 0;
     }
-    else if (getCHK(commandBuffer.substring(0, commandBuffer.length() - 1)) + 1 == commandBuffer[commandBuffer.length() - 1] &&
-             getCHK(commandBuffer.substring(0, commandBuffer.length() - 1)) + 1 != 0 && commandBuffer[commandBuffer.length() - 1] != 0 &&
+    else if (cbLen >= 2 &&
+             getCHK(cbBuf, cbLen - 1) + 1 == commandBuffer[cbLen - 1] &&
+             getCHK(cbBuf, cbLen - 1) + 1 != 0 && commandBuffer[cbLen - 1] != 0 &&
              command == "QALL" // crude fix for the qall chk thing
              )                 // CHK for QALL
     {
-        crcCalc = getCHK(commandBuffer.substring(0, commandBuffer.length() - 1)) + 1;
-        crcRecive = commandBuffer[commandBuffer.length() - 1];
-        commandBuffer.remove(commandBuffer.length() - 1); // remove the crc
+        crcCalc = getCHK(cbBuf, cbLen - 1) + 1;
+        crcRecive = commandBuffer[cbLen - 1];
+        commandBuffer.remove(cbLen - 1); // remove the crc
         commandBuffer.remove(0, strlen(startChar));       // remove the start char ( for Pi30 and ^Dxxx for Pi18
 
         // requestOK++;
         connectionCounter = 0;
     }
-    else if (commandBuffer.indexOf("NAK", strlen(startChar)) > 0) // catch NAK without crc
+    else if (commandBuffer == "NAK" ||
+             (cbLen >= (strlen(startChar) + 3) &&
+              memcmp(cbBuf + strlen(startChar), "NAK", 3) == 0)) // catch NAK without crc
     {
         commandBuffer = "NAK";
     }
     else if (commandBuffer == "") // catch empty answer, its similar to NAK
     {
-        commandBuffer = "NAK";
+        commandBuffer = "NOA";
     }
     else
     {
@@ -280,7 +407,11 @@ String PI_Serial::requestData(String command)
         connectionCounter++;
         commandBuffer = "ERCRC";
     }
-    writeLog("[C: %5S][CR: %4X][CC: %4X][L: %3u]", (const wchar_t *)command.c_str(), crcRecive, crcCalc, commandBuffer.length());
+    writeLog("[C: %6s][CR: %4X][CC: %4X][L: %3u]", command.c_str(), crcRecive, crcCalc, commandBuffer.length());
+    if (busyCount > 0)
+    {
+        busyCount--;
+    }
     return commandBuffer;
 }
 
@@ -325,10 +456,22 @@ uint16_t cal_crc_half(uint8_t *pin, uint8_t len)
 
 uint16_t PI_Serial::getCRC(String data) // get a calculated crc from a string
 {
+    return getCRC(data.c_str(), data.length());
+}
+
+byte PI_Serial::getCHK(String data) // get a calculatedt CHK
+{
+    return getCHK(data.c_str(), data.length());
+}
+
+uint16_t PI_Serial::getCRC(const char *data, size_t len) // get a calculated crc from a buffer
+{
     crc.reset();
     crc.setPolynome(0x1021);
-    crc.add((uint8_t *)data.c_str(), data.length());
-    // return crc.calc(); // here comes the crc;
+    if (data && len)
+    {
+        crc.add((uint8_t *)data, len);
+    }
     crc.calc();
     uint8_t CRCLow = lowByte(crc.calc());
     uint8_t CRCHigh = highByte(crc.calc());
@@ -346,10 +489,14 @@ uint16_t PI_Serial::getCRC(String data) // get a calculated crc from a string
     return (CRCre);
 }
 
-byte PI_Serial::getCHK(String data) // get a calculatedt CHK
+byte PI_Serial::getCHK(const char *data, size_t len) // get a calculatedt CHK from a buffer
 {
     byte chk = 0;
-    for (unsigned int i = 0; i < data.length(); i++)
+    if (!data || len == 0)
+    {
+        return chk;
+    }
+    for (size_t i = 0; i < len; i++)
     {
         chk += data[i];
     }
@@ -400,7 +547,7 @@ char *PI_Serial::getModeDesc(char mode) // get the char from QMOD and make reada
 
 bool PI_Serial::isModbus()
 {
-    return protocol == MODBUS_MUST;
+    return protocol == MODBUS_MUST || protocol == MODBUS_DEYE || protocol == MODBUS_ANENJI;
 }
 
 bool PI_Serial::checkQFLAG(const String& flags, char symbol) {

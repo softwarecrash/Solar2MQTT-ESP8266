@@ -1,0 +1,2164 @@
+==== HS_MS_MSX RS232 Protocol 20140603B (1).pdf page 1 ====
+1 Communication format .......................................................................................................................... 1
+2 Inquiry Command .................................................................................................................................. 1
+2.1 QPI<cr>: Device Protocol ID Inquiry ........................................................................................................ 1
+2.2 QID<cr>: The device serial number inquiry ............................................................................................. 1
+2.3 QVFW<cr>: Main CPU Firmware version inquiry ................................................................................. 1
+2.4 QVFW2<cr> :Another CPU Firmware version inquiry .......................................................................... 2
+2.5 QPIRI<cr>: Device Rating Information inquiry ...................................................................................... 2
+2.6 QFLAG<cr>: Device flag status inquiry ................................................................................................... 4
+2.7 QPIGS<cr>: Device general status parameters inquiry........................................................................... 4
+2.8 QMOD<cr>: Device Mode inquiry ............................................................................................................ 6
+2.9 QPIWS<cr>: Device Warning Status inquiry ........................................................................................... 6
+2.10 QDI<cr>: The default setting value information ...................................................................................... 7
+2.11 QMCHGCR<cr>: Enquiry selectable value about max charging current ........................................... 10
+2.12 QMUCHGCR<cr>: Enquiry selectable value about max utility charging current ............................. 10
+2.13 QBOOT<cr>: Enquiry DSP has bootstrap or not .................................................................................. 10
+2.14 QOPM<cr>: Enquiry output mode (For 4000/5000) .............................................................................. 10
+2.15 QPGSn<cr>: Parallel Information inquiry（（（（For 4K/5K）））） ................................................................... 10
+3 Setting parameters Command ............................................................................................................. 13
+3.1 PE<XXX>/PD<XXX><CRC><cr>: setting some status enable/disable ............................................... 13
+3.2 PF<cr>: Setting control parameter to default value ............................................................................... 14
+3.3 F<nn><cr>: Setting device output rating frequency .............................................................................. 16
+3.4 POP<NN><cr>: Setting device output source priority .......................................................................... 16
+3.5 PBCV<nn.n><cr>: Set battery re-charge voltage ................................................................................... 16
+3.6 PBDV<nn.n><cr>: Set battery re-discharge voltage .............................................................................. 16
+3.7 PCP<NN><cr>: Setting device charger priority ..................................................................................... 16
+3.8 PGR<NN><cr>: Setting device grid working range ............................................................................... 17
+3.9 PBT<NN><cr>: Setting battery type ....................................................................................................... 17
+3.10 PSDV<nn.n><cr>: Setting battery cut-off voltage (Battery under voltage) ......................................... 17
+3.11 PCVV<nn.n><cr>: Setting battery C.V. (constant voltage) charging voltage ...................................... 17
+3.12 PBFT<nn.n><cr>: Setting battery float charging voltage ..................................................................... 17
+3.13 PPVOKC<n ><cr>: Setting PV OK condition ........................................................................................ 17
+3.14 PSPB<n ><cr>: Setting Solar power balance .......................................................................................... 17
+1
+
+==== HS_MS_MSX RS232 Protocol 20140603B (1).pdf page 3 ====
+RJ45 to RS232 cable between computer and device
+1 Communication format
+Baud rate Start bit Data bit Parity bit Stop bit
+2400 1 8 N 1
+2 Inquiry Command
+2.1 QPI<cr>: Device Protocol ID Inquiry
+Computer: QPI<CRC><cr>
+Device: (PI<NN> <CRC><cr>
+N is an integer number ranging from 0 to 9.
+Function: To request the device Protocol ID.
+Protocol ID distribution: 30 for HS/MS/MSX HS series
+2.2 QID<cr>: The device serial number inquiry
+Computer: QID <CRC><cr>
+Device: (XXXXXXXXXXXXXX <CRC><cr>
+2.3 QVFW<cr>: Main CPU Firmware version inquiry
+Computer: QVFW<CRC><cr>
+Device: (VERFW:<NNNNN.NN><CRC><cr>
+1
+
+==== HS_MS_MSX RS232 Protocol 20140603B (1).pdf page 4 ====
+<N> is a HEX number from 0...9 or A…F.
+Example:
+Computer: QVFW<CRC><cr>
+Device: (VERFW:00123.01<CRC><cr>
+00123: firmware series number；01：version
+2.4 QVFW2<cr> :Another CPU Firmware version inquiry
+Computer: QVFW2<CRC><cr>
+UPS: (VERFW2: <NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.5 QPIRI<cr>: Device Rating Information inquiry
+Computer: QPIRI<CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FF.F HHHH IIII JJ.J KK.K JJ.J KK.K LL.L O PP Q0
+O P Q R SS T U VV.V W X<CRC><cr>
+Date Description Notes
+A ( Start byte
+B is an integer ranging from 0 to 9.
+B BBB.B Grid rating voltage
+The units is V.
+C is an Integer ranging from 0 to 9.
+C CC.C Grid rating current
+The units is A.
+D is an Integer ranging from 0 to 9.
+D DDD.D AC output rating voltage
+The units is V.
+E is an Integer ranging from 0 to 9.
+E EE.E AC output rating frequency
+The units is Hz.
+F is an Integer ranging from 0 to 9.
+F FF.F AC output rating current
+The unit is A.
+AC output rating apparent H is an Integer ranging from 0 to 9.
+H HHHH
+power The unit is VA.
+AC output rating active I is an Integer ranging from 0 to 9.
+I IIII
+power The unit is W.
+J is an Integer ranging from 0 to 9.
+J JJ.J Battery rating voltage
+The units is V.
+K is an Integer ranging from 0 to 9.
+K KK.K Battery re-charge voltage
+The units is V.
+J is an Integer ranging from 0 to 9.
+l JJ.J Battery under voltage
+The units is V.
+K is an Integer ranging from 0 to 9.
+M KK.K Battery bulk voltage
+The units is V.
+L is an Integer ranging from 0 to 9.
+N LL.L Battery float voltage
+The units is V.
+2
+
+==== HS_MS_MSX RS232 Protocol 20140603B (1).pdf page 6 ====
+max charged current;
+1: PV input max power will be the
+sum of the max charged power and
+loads power.
+2.6 QFLAG<cr>: Device flag status inquiry
+ExxxDxxx is the flag status. E means enable, D means disable
+x Control setting
+A Enable/disable silence buzzer or open buzzer
+B Enable/Disable overload bypass function
+J Enable/Disable power saving
+Enable/Disable LCD display escape to default page after
+K
+1min timeout
+U Enable/Disable overload restart
+V Enable/Disable over temperature restart
+X Enable/Disable backlight on
+Y Enable/Disable alarm on when primary source interrupt
+Z Enable/Disable fault code record
+Computer: QFLAG <CRC><cr>
+Device: (ExxxDxxx <CRC><cr>
+2.7 QPIGS<cr>: Device general status parameters inquiry
+Computer: QPIGS <CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KK OOO TTTT EEEE UUU.U
+WW.WW PPPPP b7b6b5b4b3b2b1b0<CRC><cr>
+Data Description Notes HS/MS/
+MSX
+a ( Start byte
+b BBB.B Grid voltage B is an Integer number 0 to 9. The units is V.
+C CC.C Grid frequency C s an Integer number 0 to 9. The units is Hz.
+D DDD.D AC output voltage D is an Integer number 0 to 9. The units is V.
+E EE.E AC output frequency E is an Integer number from 0 to 9. The units
+is Hz.
+F FFFF AC output apparent F is an Integer number from 0 to 9. The units
+power is VA
+G GGGG G is an Integer ranging from 0 to 9. The units
+AC output active power
+is W.
+H HHH Output load percent DEVICE: HHH is Maximum of W% or VA%.
+4
+
+==== HS_MS_MSX RS232 Protocol 20140603B (1).pdf page 8 ====
+2.8 QMOD<cr>: Device Mode inquiry
+Computer: QMOD<CRC><cr>
+Device: (M<CRC><cr>
+MODE CODE(M) Notes
+Power On Mode P Power on mode
+Standby Mode S Standby mode
+Line Mode L Line Mode
+Battery Mode B Battery mode
+Fault Mode F Fault mode
+Power saving Mode H Power saving Mode
+Example:
+Computer: QMOD<CRC><cr>
+DEVICE: (L<CRC><cr>
+Means: the current DEVICE mode is Grid mode.
+2.9 QPIWS<cr>: Device Warning Status inquiry
+Computer: QPIWS<CRC> <cr>
+Device: (a0a1…..a30a31<CRC><cr>
+a0,…,a31 is the warning status. If the warning is happened, the relevant bit will set 1, else the
+relevant bit will set 0. The following table is the warning code.
+bit Warning Description
+a0 Reserved
+a1 Inverter fault Fault
+a2 Bus Over Fault
+a3 Bus Under Fault
+a4 Bus Soft Fail Fault
+a5 LINE_FAIL Warning
+a6 OPVShort Warning
+a7 Inverter voltage too low Fault
+a8 Inverter voltage too high Fault
+Compile with a1, if a1=1,fault,
+a9 Over temperature
+otherwise warning
+Compile with a1, if a1=1,fault,
+a10 Fan locked
+otherwise warning
+Compile with a1, if a1=1,fault,
+a11 Battery voltage high
+otherwise warning
+a12 Battery low alarm Warning
+6
+
+==== HS_MS_MSX RS232 Protocol 20140603B (1).pdf page 13 ====
+Device: (A BBBBBBBBBBBBBB C DD EEE.E FF.FF GGG.G HH.HH IIII JJJJ KKK LL.L MM
+NNN OOO.O PPP QQQQQ RRRRR SSS b7b6b5b4b3b2b1b0 T U VV WW ZZ XX
+YYY<CRC><cr>
+Date Description Notes
+A ( Start byte
+The parallel num whether 0：No exist.
+B A
+exist 1：Exist.
+BBBBBBBB B is an Integer ranging from 0 to
+C Serial number
+BBBBBB 9.
+D C Work mode C is an character, refer to QMOD
+D is an Integer ranging from 0 to
+E DD Fault code
+9.
+E is an Integer ranging from 0 to
+F EEE.E Grid voltage
+9. The units is V.
+F is an Integer ranging from 0 to
+G FF.FF Grid frequency
+9. The unit is Hz.
+G is an Integer ranging from 0 to
+H GGG.G AC output voltage
+9. The units is V.
+H is an Integer ranging from 0 to
+I HH.HH AC output frequency
+9. The unit is Hz.
+I is an Integer number from 0 to
+J IIII AC output apparent power
+9. The units is VA
+J is an Integer ranging from 0 to
+K JJJJ AC output active power
+9. The units is W.
+K is an Integer ranging from 0 to
+L KKK Load percentage
+9. The units is %.
+L is an Integer ranging from 0 to
+M LL.L Battery voltage
+9. The unit is V.
+M is an Integer ranging from 0 to
+N MM Battery charging current
+9. The units is A.
+N is an Integer ranging from 0 to
+O NNN Battery capacity
+9. The units is %.
+O is an Integer ranging from 0 to
+P OOO. O PV Input Voltage 9.
+The units is V.
+P is an Integer ranging from 0 to
+Q PPP Total charging current
+9. The units is A.
+Total AC output apparent Q is an Integer ranging from 0 to
+R QQQQQ
+power 9. The units is VA.
+R is an Integer ranging from 0 to
+S RRRRR Total output active power
+9. The units is W.
+T SSS Total AC output percentage S is an Integer ranging from 0 to
+11
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 2 ====
+MAX Communication Protocol
+1 Communication format .......................................................................................................................... 1
+1.1 RS232 ............................................................................................................................................................ 1
+2 Inquiry Command .................................................................................................................................. 1
+2.1 QPI<cr>: Device Protocol ID Inquiry ........................................................................................................ 1
+2.2 QID<cr>: The device serial number inquiry ............................................................................................. 1
+2.3 QSID<cr>: The device serial number inquiry (the length is more than 14) ........................................... 1
+2.4 QVFW<cr>: Main CPU Firmware version inquiry ................................................................................. 1
+2.5 QVFW3<cr>: Another CPU (remote panel) Firmware version inquiry ................................................. 2
+2.6 VERFW:<cr>: Bluetooth version inquiry ................................................................................................. 2
+2.7 QPIRI<cr>: Device Rating Information inquiry ...................................................................................... 2
+2.8 QFLAG<cr>: Device flag status inquiry ................................................................................................... 4
+2.9 QPIGS<cr>: Device general status parameters inquiry........................................................................... 4
+2.10 QPIGS2<cr>: Device general status parameters inquiry (Only 48V model) ......................................... 6
+2.11 QPGSn<cr>: Parallel Information inquiry (Only 48V model) ................................................................ 6
+2.12 QMOD<cr>: Device Mode inquiry ............................................................................................................ 9
+2.13 QPIWS<cr>: Device Warning Status inquiry ......................................................................................... 10
+2.14 QDI<cr>: The default setting value information .....................................................................................11
+2.15 QMCHGCR<cr>: Enquiry selectable value about max charging current ........................................... 13
+2.16 QMUCHGCR<cr>: Enquiry selectable value about max utility charging current ............................. 13
+2.17 QOPPT<cr>: The device output source priority time order inquiry .................................................... 13
+2.18 QCHPT<cr>: The device charger source priority time order inquiry ................................................. 13
+2.19 QT<cr>: Time inquiry ............................................................................................................................... 14
+2.20 QBEQI<cr>: Battery equalization status parameters inquiry .............................................................. 14
+2.21 QMN<cr>: Query model name ................................................................................................................. 14
+2.22 QGMN<cr>: Query general model name ................................................................................................ 15
+2.23 QET<CRC><cr>: Query total PV generated energy ............................................................................. 15
+2.24 QEYyyyy<CRC><cr>: Query PV generated energy of year ................................................................. 15
+2.25 QEMyyyymm<CRC><cr>: Query PV generated energy of month ...................................................... 15
+2.26 QEDyyyymmdd<CRC><cr>: Query PV generated energy of day ....................................................... 15
+2.27 QLT<CRC><cr>: Query total output load energy ................................................................................. 15
+2.28 QLYyyyy<CRC><cr>: Query output load energy of year ..................................................................... 15
+2
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 3 ====
+MAX Communication Protocol
+2.29 QLMyyyymm<CRC><cr>: Query output load energy of month ......................................................... 15
+2.30 QLDyyyymmdd<CRC><cr>: Query output load energy of day........................................................... 16
+2.31 QBMS<CRC><cr>: BMS message .......................................................................................................... 16
+2.32 PBMS<CRC><cr>: BMS message ........................................................................................................... 16
+2.33 QLED<cr>: LED status parameters inquiry .......................................................................................... 16
+3 Setting parameters Command ............................................................................................................. 17
+3.1 ATE1<CRC><cr>: Start ATE test, remote panel stop polling ............................................................... 17
+3.2 ATE0: End ATE test, remote panel polling ............................................................................................. 17
+3.3 PE<X> / PD<X><cr>: Setting some status enable/disable ..................................................................... 17
+3.4 PF<cr>: Setting control parameter to default value ............................................................................... 17
+3.5 MNCHGC<mnnn><cr>: Setting max charging current ........................................................................ 18
+3.6 MUCHGC<mnn><cr>: Setting utility max charging current ............................................................... 18
+3.7 F<nn><cr>: Setting Inverter output rating frequency ........................................................................... 18
+3.8 V<nnn><cr>: Setting device output rating voltage ................................................................................ 18
+3.9 POP<NN><cr>: Setting device output source priority .......................................................................... 18
+3.10 PBCV<nn.n><cr>: Set battery re-charge voltage ................................................................................... 18
+3.11 PBDV<nn.n><cr>: Set battery re-discharge voltage .............................................................................. 18
+3.12 PCP<NN><cr>: Setting device charger priority ..................................................................................... 18
+3.13 PGR<NN><cr>: Setting device grid working range ............................................................................... 19
+3.14 PBT<NN><cr>: Setting battery type ....................................................................................................... 19
+3.15 POPM<nn ><cr>: Set output mode ......................................................................................................... 19
+3.16 PPCP<MNN><cr>: Setting parallel device charger priority................................................................. 19
+3.17 PSDV<nn.n><cr>: Setting battery cut-off voltage (Battery under voltage) ......................................... 19
+3.18 PCVV<nn.n><cr>: Setting battery C.V. (constant voltage) charging voltage ...................................... 19
+3.19 PBFT<nn.n><cr>: Setting battery float charging voltage ..................................................................... 19
+3.20 RTEY<cr>: Reset all stored data for PV/load energy ............................................................................ 20
+3.21 RTDL<cr>: Erase all data log .................................................................................................................. 20
+3.22 PBEQE<n><cr>: Enable or disable battery equalization ...................................................................... 20
+3.23 PBEQT<nnn><cr>: Set battery equalization time ................................................................................. 20
+3.24 PBEQP<nnn><cr>: Set battery equalization period .............................................................................. 20
+3.25 PBEQV<nn.nn><cr>: Set battery equalization voltage ......................................................................... 20
+3.26 PBEQOT<nnn><cr>: Set battery equalization over time ...................................................................... 20
+3
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 5 ====
+MAX Communication Protocol
+RJ45 to RS232 cable between computer and device
+1 Communication format
+1.1 RS232
+Baud rate Start bit Data bit Parity bit Stop bit
+2400 1 8 N 1
+2 Inquiry Command
+2.1 QPI<cr>: Device Protocol ID Inquiry
+Computer: QPI<CRC><cr>
+Device: (PI<NN> <CRC><cr>
+N is an integer number ranging from 0 to 9.
+Function: To request the device Protocol ID.
+Protocol ID distribution: 30 for Axpert KS series
+2.2 QID<cr>: The device serial number inquiry
+Computer: QID <CRC><cr>
+Device: (XXXXXXXXXXXXXX <CRC><cr>
+2.3 QSID<cr>: The device serial number inquiry (the length is more than 14)
+Computer: QSID<CRC><cr>
+Device: (NNXXXXXXXXXXXXXXXXXXXX <CRC><cr>
+NN: Serial number valid length, X: Serial number, invalid part is filled as ‘0’, total X is 20.
+2.4 QVFW<cr>: Main CPU Firmware version inquiry
+Computer: QVFW<CRC><cr>
+1
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 6 ====
+MAX Communication Protocol
+Device: (VERFW:<NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+Example:
+Computer: QVFW<CRC><cr>
+Device: (VERFW:00023.01<CRC><cr>
+00123: firmware series number；01：version
+2.5 QVFW3<cr>: Another CPU (remote panel) Firmware version inquiry
+Computer: QVFW3<CRC><cr>
+Device: (VERFW: <NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.6 VERFW:<cr>: Bluetooth version inquiry
+Computer: VERFW:<CRC><cr>
+Device: (VERFW: <NNNNN.NN><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.7 QPIRI<cr>: Device Rating Information inquiry
+Computer: QPIRI<CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FF.F HHHH IIII JJ.J KK.K JJ.J KK.K LL.L O PP QQ0
+O P Q R SS T U VV.V W X YYY Z CCC <CRC><cr>
+Date Description Notes
+A ( Start byte
+B is an integer ranging from 0 to 9.
+B BBB.B Grid rating voltage
+The units is V.
+C is an Integer ranging from 0 to 9.
+C CC.C Grid rating current
+The units is A.
+D is an Integer ranging from 0 to 9.
+D DDD.D AC output rating voltage
+The units is V.
+E is an Integer ranging from 0 to 9.
+E EE.E AC output rating frequency
+The units is Hz.
+F is an Integer ranging from 0 to 9.
+F FF.F AC output rating current
+The unit is A.
+AC output rating apparent H is an Integer ranging from 0 to 9.
+H HHHH
+power The unit is VA.
+AC output rating active I is an Integer ranging from 0 to 9.
+I IIII
+power The unit is W.
+J is an Integer ranging from 0 to 9.
+J JJ.J Battery rating voltage
+The units is V.
+K is an Integer ranging from 0 to 9.
+K KK.K Battery re-charge voltage
+The units is V.
+J is an Integer ranging from 0 to 9.
+l JJ.J Battery under voltage
+The units is V.
+K is an Integer ranging from 0 to 9.
+M KK.K Battery bulk voltage
+The units is V.
+2
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 8 ====
+MAX Communication Protocol
+consider PV OK;
+1: Only All of inverters have connect
+PV, parallel system will consider PV
+OK
+0: PV input max current will be the
+max charged current;
+X X PV power balance 1: PV input max power will be the
+sum of the max charged power and
+loads power.
+Max. charging time at C.V Y is an Integer ranging from 0 to 9.
+Y YYY
+stage (only 48V model) The unit is minute.
+0: Automatically
+Operation Logic (only 48V
+Z Z 1: On-line mode
+model)
+2: ECO mode
+Max discharging current C is an integer ranging from 0 to 9.
+A1 CCC
+(only 48V model) The units is A.
+2.8 QFLAG<cr>: Device flag status inquiry
+ExxxDxxx is the flag status. E means enable, D means disable
+x Control setting
+a Enable/disable silence buzzer or open buzzer
+b Enable/Disable overload bypass function
+d Enable/Disable solar feed to grid (reserved feature)
+Enable/Disable LCD display escape to default page after
+k
+1min timeout
+u Enable/Disable overload restart
+v Enable/Disable over temperature restart
+x Enable/Disable backlight on
+y Enable/Disable alarm on when primary source interrupt
+z Enable/Disable fault code record
+Computer: QFLAG <CRC><cr>
+Device: (ExxxDxxx <CRC><cr>
+2.9 QPIGS<cr>: Device general status parameters inquiry
+Computer: QPIGS <CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KKK OOO TTTT EE.E
+UUU.U WW.WW PPPPP b7b6b5b4b3b2b1b0 QQ VV MMMMM b10b9b8 Y ZZ AAAA
+<CRC><cr>
+Data Description Notes Axpert
+a ( Start byte
+b BBB.B Grid voltage B is an Integer number 0 to 9. The units is V.
+4
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 10 ====
+MAX Communication Protocol
+000: Do nothing
+110: Charging on with SCC charge on
+101: Charging on with AC charge on
+111: Charging on with SCC and AC charge on
+y QQ Battery voltage offset Q is an Integer ranging from 0 to 9. The unit is
+for fans on 10mV.
+z VV EEPROM version V is an Integer ranging from 0 to 9.
+MMMM PV1 Charging power M is an Integer ranging from 0 to 9. The unit
+M is watt.
+b10b9b8 Device status b10: flag for charging to floating mode
+b9: Switch On
+b8: flag for dustproof installed(1-dustproof
+installed,0-no dustproof, only available for
+Axpert V series)
+Y Solar feed to grid status 0: normal
+(reserved feature) 1: solar feed to grid
+ZZ Set country customized 00: India
+regulation (reserved 01: Germany
+feature)
+02: South America
+AAAA Solar feed to grid A is an Integer ranging from 0 to 9. The units
+power (reserved is W.
+feature)
+2.10 QPIGS2<cr>: Device general status parameters inquiry (Only 48V model)
+Computer: QPIGS2 <CRC><cr>
+Device: (BB.B CCC.C DDDDD <CRC><cr>
+Data Description Notes Axpert
+a ( Start byte
+b BB.B PV2 Input current E is an Integer ranging from 0 to 9. The units
+is A.
+c CCC.C PV2 Input voltage U is an Integer ranging from 0 to 9. The units
+is V.
+d DDDDD PV2 Charging power M is an Integer ranging from 0 to 9. The unit
+is watt.
+2.11 QPGSn<cr>: Parallel Information inquiry (Only 48V model)
+Computer: QPGSn<CRC><cr>; n is parallel machine number.
+Device: (A BBBBBBBBBBBBBB C DD EEE.E FF.FF GGG.G HH.HH IIII JJJJ KKK LL.L
+MMM NNN OOO.O PPP QQQQQ RRRRR SSS b7b6b5b4b3b2b1b0 T U VVV WWW ZZ XX
+YYY OOO.O XX<CRC><cr>
+Date Description Notes
+A ( Start byte
+B A The parallel num whether 0：No exist.
+6
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 11 ====
+MAX Communication Protocol
+exist 1：Exist.
+BBBBBBBB B is an Integer ranging from 0 to
+C Serial number
+BBBBBB 9.
+D C Work mode C is an character, refer to QMOD
+D is an Integer ranging from 0 to
+E DD Fault code
+9.
+E is an Integer ranging from 0 to
+F EEE.E Grid voltage
+9. The units is V.
+F is an Integer ranging from 0 to
+G FF.FF Grid frequency
+9. The unit is Hz.
+G is an Integer ranging from 0 to
+H GGG.G AC output voltage
+9. The units is V.
+H is an Integer ranging from 0 to
+I HH.HH AC output frequency
+9. The unit is Hz.
+I is an Integer number from 0 to
+J IIII AC output apparent power
+9. The units is VA
+J is an Integer ranging from 0 to
+K JJJJ AC output active power
+9. The units is W.
+K is an Integer ranging from 0 to
+L KKK Load percentage
+9. The units is %.
+L is an Integer ranging from 0 to
+M LL.L Battery voltage
+9. The unit is V.
+M is an Integer ranging from 0 to
+N MMM Battery charging current
+9. The units is A.
+N is an Integer ranging from 0 to
+O NNN Battery capacity
+9. The units is %.
+O is an Integer ranging from 0 to
+P OOO. O PV1 Input Voltage
+9. The units is V.
+P is an Integer ranging from 0 to
+Q PPP Total charging current
+9. The units is A.
+Total AC output apparent Q is an Integer ranging from 0 to
+R QQQQQ
+power 9. The units is VA.
+R is an Integer ranging from 0 to
+S RRRRR Total output active power
+9. The units is W.
+S is an Integer ranging from 0 to
+T SSS Total AC output percentage
+9. The units is %.
+b7: 1 SCC OK, 0 SCC LOSS
+b6: 1 AC Charging
+0 AC no charging
+U b7b6b5b4b3b2b1b0 Inverter Status b5: 1 SCC Charging
+0 SCC no charging
+b4b3: 2 battery open,
+1 battery under, 0 battery
+7
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 13 ====
+MAX Communication Protocol
+05 Output short circuited.
+06 Output voltage is too high.
+07 Overload time out
+08 Bus voltage is too high
+09 Bus soft start failed
+10 PV over current
+11 PV over voltage
+12 DCDC over current
+13 Battery discharge over current
+51 Over current
+52 Bus voltage is too low
+53 Inverter soft start failed
+55 Over DC voltage in AC output
+57 Current sensor failed
+58 Output voltage is too low
+60 Power feedback protection
+71 Firmware version inconsistent
+72 Current sharing fault
+80 CAN fault
+81 Host loss
+82 Synchronization loss
+83 Battery voltage detected different
+84 AC input voltage and frequency detected different
+85 AC output current unbalance
+86 AC output mode setting is different
+2.12 QMOD<cr>: Device Mode inquiry
+Computer: QMOD<CRC><cr>
+Device: (M<CRC><cr>
+MODE CODE(M) Notes
+Power on mode P Power on mode
+Standby mode S Standby mode
+Line mode L Line mode
+Battery mode B Battery mode
+Fault mode F Fault mode
+Shutdown mode D Shutdown mode
+Example:
+Computer: QMOD<CRC><cr>
+9
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 14 ====
+MAX Communication Protocol
+DEVICE: (L<CRC><cr>
+Means: the current DEVICE mode is Grid mode.
+2.13 QPIWS<cr>: Device Warning Status inquiry
+Computer: QPIWS<CRC> <cr>
+Device: (a0a1…..a30a31<CRC><cr>
+a0… a35 is the warning status. If the warning is happened, the relevant bit will set 1, else the
+relevant bit will set 0. The following table is the warning code.
+bit Warning Description
+a0 PV loss Warning
+a1 Inverter fault Fault
+a2 Bus Over Fault
+a3 Bus Under Fault
+a4 Bus Soft Fail Fault
+a5 LINE_FAIL Warning
+a6 OPVShort Fault
+a7 Inverter voltage too low Fault
+a8 Inverter voltage too high Fault
+Compile with a1, if a1=1,fault,
+a9 Over temperature
+otherwise warning
+Compile with a1, if a1=1,fault,
+a10 Fan locked
+otherwise warning
+Compile with a1, if a1=1,fault,
+a11 Battery voltage high
+otherwise warning
+a12 Battery low alarm Warning
+a13 Reserved
+a14 Battery under shutdown Warning
+a15 Battery derating Warning
+Compile with a1, if a1=1,fault,
+a16 Over load
+otherwise warning
+a17 Eeprom fault Warning
+a18 Inverter Over Current Fault
+a19 Inverter Soft Fail Fault
+a20 Self Test Fail Fault
+a21 OP DC Voltage Over Fault
+a22 Bat Open
+a23 Current Sensor Fail Fault
+a24 Reserved
+a25 Reserved
+a26 Reserved
+10
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 19 ====
+MAX Communication Protocol
+Device: (MMMMM-NNNN<CRC><cr> if device accepts this command, otherwise, responds
+(NAK<cr>
+MMMMM: model name, NNNN: Rated output VA
+2.22 QGMN<cr>: Query general model name
+Computer: QGMN<CRC><cr>
+Device: (NNN<CRC><cr> if Inverter accepts this command, otherwise, responds (NAK<cr>
+2.23 QET<CRC><cr>: Query total PV generated energy
+Computer: QET<CRC><cr>
+Device: (NNNNNNNN<CRC><cr>
+NNNNNNNN: Generated energy, N: 0~9, unit: Wh
+2.24 QEYyyyy<CRC><cr>: Query PV generated energy of year
+Computer: QEYyyyy<cr>
+Device: (NNNNNNNN<CRC><cr>
+yyyy: Year, y: 0~9
+NNNNNNNN: Generated energy, N: 0~9, unit: Wh
+2.25 QEMyyyymm<CRC><cr>: Query PV generated energy of month
+Computer: QEMyyyymm <CRC><cr>
+Device: (NNNNNNNN<CRC><cr>
+yyyy: Year, y: 0~9
+mm: Month, m: 0~9
+NNNNNNNN: Generated energy, N: 0~9, unit: Wh
+2.26 QEDyyyymmdd<CRC><cr>: Query PV generated energy of day
+Computer: QEDyyyymmdd<CRC><cr>
+Device: (NNNNNNNN<CRC><cr>
+yyyy: Year, y: 0~9
+mm: Month, m: 0~9
+dd: Day, d: 0~9
+NNNNNNNN: Generated energy, N: 0~9, unit: Wh
+2.27 QLT<CRC><cr>: Query total output load energy
+Computer: QLT<CRC><cr>
+Device: (NNNNNNNN<CRC><cr>
+NNNNNNNN: Output load energy, N: 0~9, unit: Wh
+2.28 QLYyyyy<CRC><cr>: Query output load energy of year
+Computer: QLYyyyy<CRC><cr>
+Device: (NNNNNNNN<CRC><cr>
+yyyy: Year, y: 0~9
+NNNNNNNN: Output load energy, N: 0~9, unit: Wh
+2.29 QLMyyyymm<CRC><cr>: Query output load energy of month
+Computer: QLMyyyymm<CRC><cr>
+Device: (NNNNNNNN<CRC><cr>
+yyyy: Year, y: 0~9
+mm: Month, m: 0~9
+NNNNNNNN: Output load energy, N: 0~9, unit: Wh
+15
+
+==== PI30MAX.Communication.Protocol20210217.pdf page 20 ====
+MAX Communication Protocol
+2.30 QLDyyyymmdd<CRC><cr>: Query output load energy of day
+Computer: QLDyyyymmdd<CRC><cr>
+Device: (NNNNNNNN<CRC><cr>
+yyyy: Year, y: 0~9
+mm: Month, m: 0~9
+dd: Day, d: 0~9
+NNNNNNNN: Output load energy, N: 0~9, unit: Wh
+2.31 QBMS<CRC><cr>: BMS message
+Computer: QBMS<CRC><cr>
+Device: (ACK <CRC><cr>
+2.32 PBMS<CRC><cr>: BMS message
+Remote box: PBMSa bbb c d e fff ggg hhh iiii jjjj<CRC><cr>
+Device: (ACK<CRC><cr>
+Data Description Notes
+( Start byte
+a Battery connect status 0: connect, 1: disconnect.
+b is an Integer ranging from 0 to 9. The units
+bbb Battery percentage
+is %.
+Force AC charge battery in
+c 0: Do not force, 1: Force.
+any case
+d Battery stop discharge flag 0: Enable discharge, 1: disable discharging
+e Battery stop charge flag 0: Enable charge, 1: disable charging
+f is an Integer ranging from 0 to 9. The units
+fff Battery C.V. charging voltage
+is V.
+Battery floating charging g is an Integer ranging from 0 to 9. The units
+ggg
+voltage is V.
+h is an Integer ranging from 0 to 9. The units
+hhh Battery cut-off voltage
+is V.
+Battery max. charging i is an Integer ranging from 0 to 9. The units
+iiii
+current is A.
+Battery max. discharging j is an Integer ranging from 0 to 9. The units
+jjjj
+current is A.
+2.33 QLED<cr>: LED status parameters inquiry
+Computer: QLED<cr>
+UPS: (A B C D E aaa1bbb1ccc1 aaa2bbb2ccc2 (aaa3bbb3ccc3)<cr>
+Item Data description Notes
+a ( Start code
+b A Enable or Disable A is an Integer number 0 to 1.
+16
+
+==== PI30REVO.20Protocol.20V03--20201112.pdf page 2 ====
+Revo RS232 Communication Protocol ---V02
+1.1 QPIRI<cr>: Device Rating Information inquiry
+Computer: QPIRI<CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FF.F HHHH IIII JJ.J KK.K JJ.J KK.K LL.L O P0 Q0
+O P Q R SS T <CRC><cr>
+Date Description Notes
+A ( Start byte
+B BBB.B Grid rating voltage Mains voltage 230.0
+C CC.C Grid rating current Maximum input current 20.0 means 20A
+D DDD.D AC output rating voltage Set output voltage 230.0
+E EE.E AC output rating frequency Set output frequency 50.0
+Maximum output current 20.0 means
+F FF.F AC output rating current
+20A
+AC output rating apparent Current machine power 5500 means
+H HHHH
+power 5500va
+AC output rating active Current machine power 5500 means
+I IIII
+power 5500W
+J JJ.J Battery rating voltage Default battery voltage 48.0 or 24.0
+K KK.K Bat Low Vol Low voltage alarm point 44.0 means 44V
+alarm
+Low voltage shutdown point 40.0 means
+l JJ.J Bat Cut Vol
+40V shutdown
+Battery equalization voltage 56.0 means
+M KK.K Buck Vol
+56V
+N LL.L Flood Vol Battery float voltage 54.0 means 54V
+0: AGM
+O O Battery type 1: Flooded
+2: User Define
+Max charging current it can Maximum charging current 60 means
+P P0
+be configured 60A
+Q Q0 Current max charging current Reserved 06
+O O Input voltage range Reserved 1
+P P Output source priority Reserved 0
+Q Q Charger source priority Reserved 1
+R R Reserved Reserved 6
+S SS Machine type Reserved 01
+T T Topology Reserved 0
+K Reserved 0
+dd.0 Reserved 52.0
+m Reserved 0
+n Reserved 1
+1
+
+==== PI30REVO.20Protocol.20V03--20201112.pdf page 3 ====
+Revo RS232 Communication Protocol ---V02
+1.2 QPIGS<cr>: Device general status parameters inquiry
+Computer: QPIGS <CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KKK OOO TTTT EEEE
+UUU.U WW.WW PPPPP b7b6b5b4b3b2b1b0 <CRC><cr>
+Data Description Notes Axpert
+a ( Start byte
+b BBB.B Grid voltage Mains Voltage 234.0
+C CC.C Grid frequency Mains frequency 50.0
+D DDD.D AC output voltage Output Voltage 230.0
+E EE.E AC output frequency Output frequency 49.9
+F FFFF AC output apparent Reserved 0000
+power
+G GGGG AC output active power Load 0736 unitW
+H HHH Output load percent Load percentage 013
+I III BUS voltage 401 V
+j JJ.JJ Battery voltage 50.00 V
+k KKK Battery charging current Battery charging current 010 means 10A
+o OOO Battery capacity Battery capacity 081 means 81%
+P TTTT Inverter heat sink Temperature reserved 0026
+temperature
+r EEEE PV current PV current generating power 0622 means
+622W
+t UUU.U PV Input voltage 1 PV voltage 311.0 means 311V
+u WW.WW Battery voltage from Battery voltage 53.00 means 53V
+SCC
+w PPPPP 00000 This is changed to the amount of power
+generated on the day. The unit is WH
+x b7b6b5b4 Device status 110: MPPT charging b2b1b0
+b3b2b1b0 101: mains charging b2b1b0
+111: Mains and MPPT charging b2b1b0
+000:Not charging
+KK Reserved 00
+DD Reserved 00
+ddddd PV power unit W
+aaa Reserved 010
+CRC
+2
+
+==== PI30REVO.20Protocol.20V03--20201112.pdf page 4 ====
+Revo RS232 Communication Protocol ---V02
+1.3 QMOD<cr>: Device Mode inquiry
+Computer: QMOD<CRC><cr>
+Device: (M<CRC><cr>
+MODE CODE(M) Notes
+Power On Mode P Keep
+Standby Mode S Standby mode
+Line Mode L Mains mode
+Battery or PV inverter
+Battery Mode B
+mode
+Fault Mode F Failure mode
+Sleep Mode H Sleep mode
+Example:
+Computer: QMOD<CRC><cr>
+DEVICE: (L<CRC><cr>
+Means: the current DEVICE mode is AC mode.
+1.4 QALL<cr>: Read current machine data status information
+Computer: QALL<CHK><cr>
+Device: (BBB CC.C DDD EE.E FFFF GGG HH.H III JJJ KKK LLL MM.M NNNN OOOOOO
+PPPPPP Q KK SS<CHK><cr>
+Data Description Notes Axpert
+A ( Start byte
+B BBB Grid voltage Mains voltage 234V
+C CC.C Grid frequency Mains frequency 50.0
+D DDD AC output voltage Output voltage 230V
+E EE.E AC output frequency Output frequency 49.9
+F FFFF AC output power Load 0736 unit is W
+G GGG Output load percent Load percentage 013
+H HH.H BAT voltage Battery voltage 51.2V
+I III Battery SOC Percentage of remaining battery capacity 098
+J JJJ Battery charging current Battery charging current 101 means 101A
+K KKK Battery discharg curr Battery discharge current 138 means 138A
+L LLL PV Vol PV voltage 289 means 289V
+M MM.M PV curr PV current 15.3 means 15.3A
+N NNNN PV POWER PV power 1385 means 1385W
+O OOOOO PV generation capacity of PV power generation on the day 016850 means
+O DAY 16850WH
+P PPPPPP PV sum generation PV total power generation 000368 means
+capactity 368KWH
+3
+
+==== PI30REVO.20Protocol.20V03--20201112.pdf page 11 ====
+Revo RS232 Communication Protocol ---V02
+M M Warning code Warning code
+CHK
+QLITH0 reads lithium battery information, add 0 after it is for future expansion
+L fault code
+0 Normal
+1 Battery overvoltage
+2 Low battery
+3 Battery over temperature
+4 Low battery temperature
+5 Battery overcurrent
+6 Output short circuit
+M is the same as above, except that one is a warning and the other is a fault
+4 Examples
+4.1 QALL
+ASCII QALL<CHK>\n
+51 + 41 + 4C + 4C + 1 = 2B
+Hex to send 51 41 4C 4C 2B 0D
+Response (Hex) 28 30 30 30 20 30 30 2E 30 20 30 30 30 20 30 30 2E 30 20 30 30 30 30
+20 30 30 30 20 30 30 2E 30 20 30 30 30 20 30 30 30 20 30 30 30 20 30
+30 30 20 30 30 2E 30 20 30 30 30 30 20 30 30 30 30 30 30 20 30 30 30
+10
+
+==== PI30_Communication-Protocol-20150924-Customer.pdf page 1 ====
+Inverter Commu nication Protocol
+1 Communication format .......................................................................................................................... 1
+2 Inquiry Command .................................................................................................................................. 1
+2.1 QPI<cr>: Device Protocol ID Inquiry ........................................................................................................ 1
+2.2 QID<cr>: The device serial number inquiry ............................................................................................. 1
+2.3 QVFW<cr>: Inverter CPU Firmware version inquiry ............................................................................ 1
+2.4 QVFW2<cr> : SCC1 CPU Firmware version inquiry ............................................................................. 2
+2.5 QVFW3<cr> : SCC2 CPU Firmware version inquiry ............................................................................. 2
+2.6 QVFW4<cr> : SCC3 CPU Firmware version inquiry ............................................................................. 2
+2.7 QPIRI<cr>: Device Rating Information inquiry ...................................................................................... 2
+2.8 QFLAG<cr>: Device flag status inquiry ................................................................................................... 4
+2.9 QPIGS<cr>: Device general status parameters inquiry........................................................................... 4
+2.10 QPIGS2<cr>: Device general status parameters inquiry......................................................................... 6
+2.11 QPGSn<cr>: Parallel Information inquiry（For 4K/5K） ..................................................................... 6
+2.12 QP2GSn<cr>: Parallel Information inquiry（For 4K/5K） ................................................................... 8
+2.13 QMOD<cr>: Device Mode inquiry ............................................................................................................ 9
+2.14 QPIWS<cr>: Device Warning Status inquiry ........................................................................................... 9
+2.15 QDI<cr>: The default setting value information .....................................................................................11
+2.16 QMCHGCR<cr>: Enquiry selectable value about max charging current ........................................... 13
+2.17 QMUCHGCR<cr>: Enquiry selectable value about max utility charging current ............................. 14
+2.18 QMSCHGCR<cr>: Enquiry selectable value about max solar charging current ............................... 14
+2.19 QBOOT<cr>: Enquiry DSP has bootstrap or not .................................................................................. 14
+2.20 QOPM<cr>: Enquiry output mode (For 4000/5000) .............................................................................. 14
+2.21 QCST<cr>: Inquiry charging stage ......................................................................................................... 14
+2.22 QCVT<cr>: Inquiry charging time in CV mode .................................................................................... 14
+3 Setting parameters Command ............................................................................................................. 15
+3.1 PE<XXX>/PD<XXX><CRC><cr>: setting some status enable/disable ............................................... 15
+3.2 PF<cr>: Setting control parameter to default value ............................................................................... 15
+3.3 MCHGC<nnn><cr>: Setting max charging current .............................................................................. 17
+3.4 MNCHGC<mnnn><cr>: Setting max charging current (More than 100A) ........................................ 17
+3.5 MUCHGC<nnn><cr>: Setting utility max charging current ................................................................ 17
+3.6 MSCHGC<nnn><cr>: Setting solar max charging current .................................................................. 18
+2
+
+==== PI30_Communication-Protocol-20150924-Customer.pdf page 3 ====
+RJ45 to RS232 or USB cable between computer and device
+1 Communication format
+Baud rate Start bit Data bit Parity bit Stop bit
+2400 1 8 N 1
+2 Inquiry Command
+2.1 QPI<cr>: Device Protocol ID Inquiry
+Computer: QPI<CRC><cr>
+Device: (PI<N N > <CRC><cr>
+3 4
+N is an integer number ranging from 0 to 9.
+Function: To request the device Protocol ID.
+Protocol ID distribution: 30
+2.2 QID<cr>: The device serial number inquiry
+Computer: QID <CRC><cr>
+Device: (X X X X X X X X X X X X X X <CRC><cr>
+1 2 3 4 5 6 7 8 9 10 11 12 13 14
+2.3 QVFW<cr>: Inverter CPU Firmware version inquiry
+Computer: QVFW<CRC><cr>
+Device: (VERFW: < N N N N N .N N ><CRC><cr>
+7 8 9 10 11 13 14
+<N> is a HEX number from 0...9 or A…F.
+Example:
+1
+
+==== PI30_Communication-Protocol-20150924-Customer.pdf page 4 ====
+Computer: QVFW<CRC><cr>
+Device: (VERFW: 00123.01<CRC><cr>
+00123: firmware series number；01：version
+2.4 QVFW2<cr> : SCC1 CPU Firmware version inquiry
+Computer: QVFW2<CRC><cr>
+UPS: (VERFW2: < N N N N N .N N ><CRC><cr>
+8 9 10 11 12 14 15
+<N> is a HEX number from 0...9 or A…F.
+If N N N N N .N N = 00000.00, it means SCC1 not send firmware version information to
+8 9 10 11 12 14 15
+inverter.
+2.5 QVFW3<cr> : SCC2 CPU Firmware version inquiry
+Computer: QVFW3<CRC><cr>
+UPS: (VERFW3: < N N N N N .N N ><CRC><cr>
+8 9 10 11 12 14 15
+<N> is a HEX number from 0...9 or A…F.
+If N N N N N .N N = 00000.00, it means SCC2 not send firmware version information to
+8 9 10 11 12 14 15
+inverter.
+2.6 QVFW4<cr> : SCC3 CPU Firmware version inquiry
+Computer: QVFW4<CRC><cr>
+UPS: (VERFW4: < N N N N N .N N ><CRC><cr>
+8 9 10 11 12 14 15
+<N> is a HEX number from 0...9 or A…F.
+If N N N N N .N N = 00000.00, it means SCC2 not send firmware version information to
+8 9 10 11 12 14 15
+inverter.
+2.7 QPIRI<cr>: Device Rating Information inquiry
+Computer: QPIRI<CRC><cr>
+Device: (N N N .N N N .N N N N .N N N .N N N .N N N N N N N N N
+1 2 3 5 7 8 10 12 13 14 16 18 19 21 23 24 26 28 29 30 31 33 34 35 36
+N N .N N N .N N N .N N N .N N N .N N N N N N N N N N N N
+38 39 41 43 44 46 48 49 51 53 54 56 58 59 61 63 65 66 68 69 70 72 74 76 78 80
+N N N N N .N N N <CRC><cr>
+81 83 85 87 88 90 92 94
+Symbol Description Notes / Unit
+1. ( Start byte N: the integer from 0 to 9
+2. N N N .N Grid rating voltage V
+1 2 3 5
+3. N N .N Grid rating current A
+7 8 10
+4. N N N .N AC output rating voltage V
+12 13 14 16
+5. N N .N AC output rating frequency Hz
+18 19 21
+6. N N .N AC output rating current A
+23 24 26
+7. N N N N AC output rating apparent power VA
+28 29 30 31
+8. N N N N AC output rating active power W
+33 34 35 36
+2
+
+==== PI30_Communication-Protocol-20150924-Customer.pdf page 6 ====
+parallel system will consider PV OK
+0: PV input max current will be the max
+charged current;
+26. N PV power balance 1: PV input max power will be the sum
+94
+of the max charged power and loads
+power.
+2.8 QFLAG<cr>: Device flag status inquiry
+ExxxDxxx is the flag status. E means enable, D means disable
+x Control setting
+A Enable/disable silence buzzer or open buzzer
+B Enable/Disable overload bypass function
+J Enable/Disable power saving
+Enable/Disable LCD display escape to default page after
+K
+1min timeout
+U Enable/Disable overload restart
+V Enable/Disable over temperature restart
+X Enable/Disable backlight on
+Y Enable/Disable alarm on when primary source interrupt
+Z Enable/Disable fault code record
+L Enable/Disable data log pop-up
+Computer: QFLAG <CRC><cr>
+Device: (ExxxDxxx <CRC><cr>
+2.9 QPIGS<cr>: Device general status parameters inquiry
+Computer: QPIGS <CRC><cr>
+Device: (N N N .N N N .N N N N .N N N .N N N N N N N N N N N N
+1 2 3 5 7 8 10 12 13 14 16 18 19 21 23 24 25 26 28 29 30 31 33 34 35
+N N N N N .N N N N N N N N N N N N N N N N N N N .N
+37 38 39 41 42 44 45 47 48 49 51 52 53 55 56 57 58 60 61 62 63 65 66 67 69
+N N .N N N N N N N b b b b b b b b N N N N N N N N N
+71 72 74 75 77 78 79 80 81 83 84 85 86 87 88 89 90 92 93 95 96 98 99 100 101 102
+b b b <CRC><cr>
+104 105 106
+Symbol Description Notes / Unit
+1. ( Start byte N: the integer from 0 to 9
+2. N N N .N Grid voltage V
+1 2 3 5
+3. N N .N Grid frequency Hz
+7 8 10
+4. N N N .N AC output voltage V
+12 13 14 16
+5. N N .N AC output frequency Hz
+18 19 21
+6. N N N N AC output apparent power VA
+23 24 25 26
+7. N N N N AC output active power W
+28 29 30 31
+4
+
+==== PI30_Communication-Protocol-20150924-Customer.pdf page 8 ====
+and AC charge on
+19. N N Battery voltage offset for fans on 10mV
+92 93
+20. N N EEPROM version
+95 96
+21. N N N N N PV Charging power 1 Watt
+98 99 100 101 102
+B : flag for charging to
+104
+floating mode
+22. b b b Device status
+104 105 106
+b : Switch On
+105
+b : reserved
+106
+2.10 QPIGS2<cr>: Device general status parameters inquiry
+Computer: QPIGS 2<CRC><cr>
+Device: (N N N N N N N N N N N N N N N N N b b b b b b b b
+1 2 3 4 6 7 8. 10 12 13. 15 16 18 19 20 21 22 24 25 26 27 28 29 30 31
+N N N N N N N N N N N N N N N N N N N N N N N N
+33 34 35 36 38 39 40 41 42 43 44 45 47 48 49. 51 53 54. 56 57 58 59 60 61
+N N N N N <CRC><cr>
+63 64 65 66 67
+Symbol Description Notes / Unit
+1. ( Start byte N: the integer from 0 to 9
+2. N N N N PV Input current 2 A
+1 2 3 4
+3. N N N N PV Input voltage 2 V
+6 7 8. 10
+4. N N N N Battery voltage from SCC 2 V
+12 13. 15 16
+5. N N N N N PV Charging power 2 Watt
+18 19 20 21 22
+b : Charging status( SCC2
+24
+charging on/off)
+6. b b b b b b b b Device status b : Charging status( SCC3
+24 25 26 27 28 29 30 31 25
+charging on/off)
+b ~ b : Reserved
+26 31
+7. N N N N AC charging current A
+33 34 35 36
+8. N N N N AC charging power W
+38 39 40 41
+9. N N N N PV Input current 3 A
+42 43 44 45
+10. N N N N PV Input voltage 3 V
+47 48 49. 51
+11. N N N N Battery voltage from SCC 3 V
+53 54. 56 57
+12. N N N N PV Charging power 3 Watt
+58 59 60 61
+13. N N N N N PV total charging power Watt
+63 64 65 66 67
+2.11 QPGSn<cr>: Parallel Information inquiry（For 4K/5K）
+Computer: QPGSn<CRC><cr>
+Device: (A BBBBBBBBBBBBBB C DD EEE.E FF.FF GGG.G HH.HH IIII JJJJ KKK LL.L
+MMM NNN OOO.O PPP QQQQQ RRRRR SSS b7b6b5b4b3b2b1b0 T U VVV WWW ZZ XX
+YYY<CRC><cr>
+Data Description Notes
+6
+
+==== PI30_Communication-Protocol-20150924-Customer.pdf page 9 ====
+A ( Start byte
+The parallel num whether 0：No exist.
+B A
+exist 1：Exist.
+BBBBBBBB B is an Integer ranging from 0 to
+C Serial number
+BBBBBB 9.
+D C Work mode C is an character, refer to QMOD
+D is an Integer ranging from 0 to
+E DD Fault code
+9.
+E is an Integer ranging from 0 to
+F EEE.E Grid voltage
+9. The units is V.
+F is an Integer ranging from 0 to
+G FF.FF Grid frequency
+9. The unit is Hz.
+G is an Integer ranging from 0 to
+H GGG.G AC output voltage
+9. The units is V.
+H is an Integer ranging from 0 to
+I HH.HH AC output frequency
+9. The unit is Hz.
+I is an Integer number from 0 to
+J IIII AC output apparent power
+9. The units is VA
+J is an Integer ranging from 0 to
+K JJJJ AC output active power
+9. The units is W.
+K is an Integer ranging from 0 to
+L KKK Load percentage
+9. The unit is %.
+L is an Integer ranging from 0 to
+M LL.L Battery voltage
+9. The unit is V.
+M is an Integer ranging from 0 to
+N MMM Battery charging current
+9. The units is A.
+N is an Integer ranging from 0 to
+O NNN Battery capacity
+9. The unit is %.
+O is an Integer ranging from 0 to
+P OOO. O PV Input Voltage 9.
+The units is V.
+P is an Integer ranging from 0 to
+Q PPP Total charging current
+9. The units is A.
+Total AC output apparent Q is an Integer ranging from 0 to
+R QQQQQ
+power 9. The unit is VA.
+R is an Integer ranging from 0 to
+S RRRRR Total output active power
+9. The units is W.
+S is an Integer ranging from 0 to
+T SSS Total AC output percentage
+9. The unit is %.
+b7: 1 SCC OK, 0 SCC LOSS
+b6: 1 AC Charging
+U b7b6b5b4b3b2b1b0 Inverter Status
+0 AC no charging
+b5: 1 SCC Charging
+7
+
+==== PI30_Communication-Protocol-20150924-Customer.pdf page 11 ====
+9. The unit is A.
+E is an Integer ranging from 0 to
+F EEEEE PV2 charging power
+9. The units is W.
+F is an Integer ranging from 0 to
+G FFF.F PV3 input voltage
+9. The unit is V.
+G is an Integer ranging from 0 to
+H GGGG PV3 input current
+9. The units is A.
+H is an Integer ranging from 0 to
+I HHHHH PV3 charging power
+9. The units is W.
+I : 1: SCC2 OK, 0: SCC2 LOSS
+1
+I 1: SCC2 Charging,
+2:
+0: SCC2 do no charging
+J I I I I I I I I SCC status I 1: SCC3 OK, 0: SCC3 LOSS
+1 2 3 4 5 6 7 8 3:
+I : 1: SCC3 Charging,
+4
+0: SCC3 do no charging
+I ~I : Reserved
+5 8
+2.13 QMOD<cr>: Device Mode inquiry
+Computer: QMOD<CRC><cr>
+Device: (M<CRC><cr>
+MODE CODE(M) Notes
+Power On Mode P Power on mode
+Standby Mode S Standby mode
+Line Mode L Line Mode
+Battery Mode B Battery mode
+Fault Mode F Fault mode
+Power saving Mode H Power saving Mode
+Example:
+Computer: QMOD<CRC><cr>
+DEVICE: (L<CRC><cr>
+Means: the current DEVICE mode is Grid mode.
+2.14 QPIWS<cr>: Device Warning Status inquiry
+Computer: QPIWS<CRC> <cr>
+Device: (b b …..b b b b b b b b <CRC><cr>
+1 2 31 32 33 34 35 36 37 38
+b b …..b b b b b b b b is the warning status. If the warning is happened, the relevant
+1 2 31 32 33 34 35 36 37 38
+bit will set 1, else the relevant bit will set 0. The following table is the warning code.
+bit Warning Description
+9
+
+==== PI30_HS_MS_MSX_RS232_Protocol_20140822_after_current_upgrade.pdf page 1 ====
+1 Communication format .......................................................................................................................... 1
+2 Inquiry Command .................................................................................................................................. 1
+2.1 QPI<cr>: Device Protocol ID Inquiry ........................................................................................................ 1
+2.2 QID<cr>: The device serial number inquiry ............................................................................................. 1
+2.3 QVFW<cr>: Main CPU Firmware version inquiry ................................................................................. 1
+2.4 QVFW2<cr> :Another CPU Firmware version inquiry .......................................................................... 2
+2.5 QPIRI<cr>: Device Rating Information inquiry ...................................................................................... 2
+2.6 QFLAG<cr>: Device flag status inquiry ................................................................................................... 4
+2.7 QPIGS<cr>: Device general status parameters inquiry........................................................................... 4
+2.8 QMOD<cr>: Device Mode inquiry ............................................................................................................ 6
+2.9 QPIWS<cr>: Device Warning Status inquiry ........................................................................................... 6
+2.10 QDI<cr>: The default setting value information ...................................................................................... 7
+2.11 QMCHGCR<cr>: Enquiry selectable value about max charging current ........................................... 10
+2.12 QMUCHGCR<cr>: Enquiry selectable value about max utility charging current ............................. 10
+2.13 QBOOT<cr>: Enquiry DSP has bootstrap or not .................................................................................. 10
+2.14 QOPM<cr>: Enquiry output mode (For 4000/5000) .............................................................................. 10
+2.15 QPGSn<cr>: Parallel Information inquiry（（（（For 4K/5K）））） ................................................................... 10
+3 Setting parameters Command ............................................................................................................. 13
+3.1 PE<XXX>/PD<XXX><CRC><cr>: setting some status enable/disable ............................................... 13
+3.2 PF<cr>: Setting control parameter to default value ............................................................................... 14
+3.3 F<nn><cr>: Setting device output rating frequency .............................................................................. 15
+3.4 POP<NN><cr>: Setting device output source priority .......................................................................... 15
+3.5 PBCV<nn.n><cr>: Set battery re-charge voltage ................................................................................... 16
+3.6 PBDV<nn.n><cr>: Set battery re-discharge voltage .............................................................................. 16
+3.7 PCP<NN><cr>: Setting device charger priority ..................................................................................... 16
+3.8 PGR<NN><cr>: Setting device grid working range ............................................................................... 16
+3.9 PBT<NN><cr>: Setting battery type ....................................................................................................... 16
+3.10 PSDV<nn.n><cr>: Setting battery cut-off voltage (Battery under voltage) ......................................... 17
+3.11 PCVV<nn.n><cr>: Setting battery C.V. (constant voltage) charging voltage ...................................... 17
+3.12 PBFT<nn.n><cr>: Setting battery float charging voltage ..................................................................... 17
+3.13 PPVOKC<n ><cr>: Setting PV OK condition ........................................................................................ 17
+1
+
+==== PI30_HS_MS_MSX_RS232_Protocol_20140822_after_current_upgrade.pdf page 3 ====
+RJ45 to RS232 cable between computer and device
+1 Communication format
+Baud rate Start bit Data bit Parity bit Stop bit
+2400 1 8 N 1
+2 Inquiry Command
+2.1 QPI<cr>: Device Protocol ID Inquiry
+Computer: QPI<CRC><cr>
+Device: (PI<NN> <CRC><cr>
+N is an integer number ranging from 0 to 9.
+Function: To request the device Protocol ID.
+Protocol ID distribution: 30 for HS series
+2.2 QID<cr>: The device serial number inquiry
+Computer: QID <CRC><cr>
+Device: (XXXXXXXXXXXXXX <CRC><cr>
+2.3 QVFW<cr>: Main CPU Firmware version inquiry
+Computer: QVFW<CRC><cr>
+Device: (VERFW:<NNNNN.NN><CRC><cr>
+1
+
+==== PI30_HS_MS_MSX_RS232_Protocol_20140822_after_current_upgrade.pdf page 4 ====
+<N> is a HEX number from 0...9 or A…F.
+Example:
+Computer: QVFW<CRC><cr>
+Device: (VERFW:00123.01<CRC><cr>
+00123: firmware series number；01：version
+2.4 QVFW2<cr> :Another CPU Firmware version inquiry
+Computer: QVFW2<CRC><cr>
+UPS: (VERFW2: <NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.5 QPIRI<cr>: Device Rating Information inquiry
+Computer: QPIRI<CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FF.F HHHH IIII JJ.J KK.K JJ.J KK.K LL.L O PP QQ0
+O P Q R SS T U VV.V W X<CRC><cr>
+Date Description Notes
+A ( Start byte
+B is an integer ranging from 0 to 9.
+B BBB.B Grid rating voltage
+The units is V.
+C is an Integer ranging from 0 to 9.
+C CC.C Grid rating current
+The units is A.
+D is an Integer ranging from 0 to 9.
+D DDD.D AC output rating voltage
+The units is V.
+E is an Integer ranging from 0 to 9.
+E EE.E AC output rating frequency
+The units is Hz.
+F is an Integer ranging from 0 to 9.
+F FF.F AC output rating current
+The unit is A.
+AC output rating apparent H is an Integer ranging from 0 to 9.
+H HHHH
+power The unit is VA.
+AC output rating active I is an Integer ranging from 0 to 9.
+I IIII
+power The unit is W.
+J is an Integer ranging from 0 to 9.
+J JJ.J Battery rating voltage
+The units is V.
+K is an Integer ranging from 0 to 9.
+K KK.K Battery re-charge voltage
+The units is V.
+J is an Integer ranging from 0 to 9.
+l JJ.J Battery under voltage
+The units is V.
+K is an Integer ranging from 0 to 9.
+M KK.K Battery bulk voltage
+The units is V.
+L is an Integer ranging from 0 to 9.
+N LL.L Battery float voltage
+The units is V.
+2
+
+==== PI30_HS_MS_MSX_RS232_Protocol_20140822_after_current_upgrade.pdf page 6 ====
+max charged current;
+1: PV input max power will be the
+sum of the max charged power and
+loads power.
+2.6 QFLAG<cr>: Device flag status inquiry
+ExxxDxxx is the flag status. E means enable, D means disable
+x Control setting
+A Enable/disable silence buzzer or open buzzer
+B Enable/Disable overload bypass function
+J Enable/Disable power saving
+Enable/Disable LCD display escape to default page after
+K
+1min timeout
+U Enable/Disable overload restart
+V Enable/Disable over temperature restart
+X Enable/Disable backlight on
+Y Enable/Disable alarm on when primary source interrupt
+Z Enable/Disable fault code record
+Computer: QFLAG <CRC><cr>
+Device: (ExxxDxxx <CRC><cr>
+2.7 QPIGS<cr>: Device general status parameters inquiry
+Computer: QPIGS <CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KKK OOO TTTT EEEE
+UUU.U WW.WW PPPPP b7b6b5b4b3b2b1b0<CRC><cr>
+Data Description Notes HS/MS/
+MSX
+a ( Start byte
+b BBB.B Grid voltage B is an Integer number 0 to 9. The units is V.
+C CC.C Grid frequency C s an Integer number 0 to 9. The units is Hz.
+D DDD.D AC output voltage D is an Integer number 0 to 9. The units is V.
+E EE.E AC output frequency E is an Integer number from 0 to 9. The units
+is Hz.
+F FFFF AC output apparent F is an Integer number from 0 to 9. The units
+power is VA
+G GGGG G is an Integer ranging from 0 to 9. The units
+AC output active power
+is W.
+H HHH Output load percent DEVICE: HHH is Maximum of W% or VA%.
+4
+
+==== PI30_HS_MS_MSX_RS232_Protocol_20140822_after_current_upgrade.pdf page 8 ====
+2.8 QMOD<cr>: Device Mode inquiry
+Computer: QMOD<CRC><cr>
+Device: (M<CRC><cr>
+MODE CODE(M) Notes
+Power On Mode P Power on mode
+Standby Mode S Standby mode
+Line Mode L Line Mode
+Battery Mode B Battery mode
+Fault Mode F Fault mode
+Power saving Mode H Power saving Mode
+Example:
+Computer: QMOD<CRC><cr>
+DEVICE: (L<CRC><cr>
+Means: the current DEVICE mode is Grid mode.
+2.9 QPIWS<cr>: Device Warning Status inquiry
+Computer: QPIWS<CRC> <cr>
+Device: (a0a1…..a30a31<CRC><cr>
+a0,…,a31 is the warning status. If the warning is happened, the relevant bit will set 1, else the
+relevant bit will set 0. The following table is the warning code.
+bit Warning Description
+a0 Reserved
+a1 Inverter fault Fault
+a2 Bus Over Fault
+a3 Bus Under Fault
+a4 Bus Soft Fail Fault
+a5 LINE_FAIL Warning
+a6 OPVShort Warning
+a7 Inverter voltage too low Fault
+a8 Inverter voltage too high Fault
+Compile with a1, if a1=1,fault,
+a9 Over temperature
+otherwise warning
+Compile with a1, if a1=1,fault,
+a10 Fan locked
+otherwise warning
+Compile with a1, if a1=1,fault,
+a11 Battery voltage high
+otherwise warning
+a12 Battery low alarm Warning
+6
+
+==== PI30_HS_MS_MSX_RS232_Protocol_20140822_after_current_upgrade.pdf page 13 ====
+A ( Start byte
+The parallel num whether 0：No exist.
+B A
+exist 1：Exist.
+BBBBBBBB B is an Integer ranging from 0 to
+C Serial number
+BBBBBB 9.
+D C Work mode C is an character, refer to QMOD
+D is an Integer ranging from 0 to
+E DD Fault code
+9.
+E is an Integer ranging from 0 to
+F EEE.E Grid voltage
+9. The units is V.
+F is an Integer ranging from 0 to
+G FF.FF Grid frequency
+9. The unit is Hz.
+G is an Integer ranging from 0 to
+H GGG.G AC output voltage
+9. The units is V.
+H is an Integer ranging from 0 to
+I HH.HH AC output frequency
+9. The unit is Hz.
+I is an Integer number from 0 to
+J IIII AC output apparent power
+9. The units is VA
+J is an Integer ranging from 0 to
+K JJJJ AC output active power
+9. The units is W.
+K is an Integer ranging from 0 to
+L KKK Load percentage
+9. The units is %.
+L is an Integer ranging from 0 to
+M LL.L Battery voltage
+9. The unit is V.
+M is an Integer ranging from 0 to
+N MMM Battery charging current
+9. The units is A.
+N is an Integer ranging from 0 to
+O NNN Battery capacity
+9. The units is %.
+O is an Integer ranging from 0 to
+P OOO. O PV Input Voltage 9.
+The units is V.
+P is an Integer ranging from 0 to
+Q PPP Total charging current
+9. The units is A.
+Total AC output apparent Q is an Integer ranging from 0 to
+R QQQQQ
+power 9. The units is VA.
+R is an Integer ranging from 0 to
+S RRRRR Total output active power
+9. The units is W.
+S is an Integer ranging from 0 to
+T SSS Total AC output percentage
+9. The units is %.
+b7: 1 SCC OK, 0 SCC LOSS
+b6: 1 AC Charging
+U b7b6b5b4b3b2b1b0 Inverter Status
+0 AC no charging
+b5: 1 SCC Charging
+11
+
+==== PI30_PIP-GK_MK-Protocol.pdf page 1 ====
+1 Communication format .......................................................................................................................... 1
+2 Inquiry Command .................................................................................................................................. 1
+2.1 QPI<cr>: Device Protocol ID Inquiry ........................................................................................................ 1
+2.2 QID<cr>: The device serial number inquiry ............................................................................................. 1
+2.3 QSID<cr>: The device serial number inquiry (the length is more than 14) ........................................... 1
+2.4 QVFW<cr>: Main CPU Firmware version inquiry ................................................................................. 2
+2.5 QVFW2<cr>: Another CPU Firmware version inquiry .......................................................................... 2
+2.6 QVFW3<cr>: Remote Panel CPU Firmware version inquiry ................................................................. 2
+2.7 VERFW:<cr>: BLE CPU Firmware version inquiry ............................................................................... 2
+2.8 QPIRI<cr>: Device Rating Information inquiry ...................................................................................... 2
+2.9 QFLAG<cr>: Device flag status inquiry ................................................................................................... 4
+2.10 QPIGS<cr>: Device general status parameters inquiry........................................................................... 5
+2.11 QMOD<cr>: Device Mode inquiry ............................................................................................................ 7
+2.12 QPIWS<cr>: Device Warning Status inquiry ........................................................................................... 8
+2.13 QDI<cr>: The default setting value information ...................................................................................... 9
+2.14 QMCHGCR<cr>: Enquiry selectable value about max charging current ............................................11
+2.15 QMUCHGCR<cr>: Enquiry selectable value about max utility charging current ..............................11
+2.16 QOPPT<cr>: The device output source priority time order inquiry .....................................................11
+2.17 QCHPT<cr>: The device charger source priority time order inquiry ..................................................11
+2.18 QT<cr>: Time inquiry ............................................................................................................................... 12
+2.19 QMN<cr>: Query model name ................................................................................................................. 12
+2.20 QGMN<cr>: Query general model name ................................................................................................ 12
+2.21 QBEQI<cr>: Battery equalization status parameters inquiry .............................................................. 12
+3 Setting parameters Command ............................................................................................................. 13
+3.1 ATE1<CRC><cr>: Start ATE test, remote panel stop polling for inverter ....... 錯誤! 尚未定義書籤。
+3.2 ATE0: End ATE test, remote panel start polling for inverter ............................. 錯誤! 尚未定義書籤。
+3.3 PE<XXX>/PD<XXX><CRC><cr>: setting some status enable/disable ............................................... 13
+3.4 PF<cr>: Setting control parameter to default value ............................................................................... 13
+3.5 MNCHGC<nnn><cr>: Setting max charging current ........................................................................... 14
+3.6 MUCHGC<nnn><cr>: Setting utility max charging current ................................................................ 15
+3.7 F<nn><cr>: Setting Inverter output rating frequency ........................................................................... 15
+3
+
+==== PI30_PIP-GK_MK-Protocol.pdf page 3 ====
+RJ45 to RS232 cable between computer and device
+1 Communication format
+Baud rate Start bit Data bit Parity bit Stop bit
+2400 1 8 N 1
+2 Inquiry Command
+2.1 QPI<cr>: Device Protocol ID Inquiry
+Computer: QPI<CRC><cr>
+Device: (PI<NN> <CRC><cr>
+N is an integer number ranging from 0 to 9.
+Function: To request the device Protocol ID.
+Protocol ID distribution: 30 for PIPser ies
+2.2 QID<cr>: The device serial number inquiry
+Computer: QID <CRC><cr>
+Device: (XXXXXXXXXXXXXX <CRC><cr>
+2.3 QSID<cr>: The device serial number inquiry (the length is more than 14)
+Computer: QSID<CRC><cr>
+Device: (NNXXXXXXXXXXXXXXXXXXXX <CRC><cr>
+NN: Serial number valid length, X: Serial number, invalid part is filled as ‘0’, total X is 20.
+1
+
+==== PI30_PIP-GK_MK-Protocol.pdf page 4 ====
+2.4 QVFW<cr>: Main CPU Firmware version inquiry
+Computer: QVFW<CRC><cr>
+Device: (VERFW:<NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+Example:
+Computer: QVFW<CRC><cr>
+Device: (VERFW:00123.01<CRC><cr>
+00123: firmware series number；01：version
+2.5 QVFW2<cr>: Another CPU Firmware version inquiry
+Computer: QVFW2<CRC><cr>
+Inverter: (VERFW2: <NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.6 QVFW3<cr>: Remote Panel CPU Firmware version inquiry
+Computer: QVFW3<CRC><cr>
+Inverter: (VERFW: <NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.7 VERFW:<cr>: BLE CPU Firmware version inquiry
+Computer: VERFW:<CRC><cr>
+Inverter: (VERFW: <NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.8 QPIRI<cr>: Device Rating Information inquiry
+Computer: QPIRI<CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FF.F HHHH IIII JJ.J KK.K JJ.J KK.K LL.L O PP QQ0
+O P Q R SS T U VV.V W X<CRC><cr>
+Date Description Notes
+A ( Start byte
+B is an integer ranging from 0 to 9.
+B BBB.B Grid rating voltage
+The units is V.
+C is an Integer ranging from 0 to 9.
+C CC.C Grid rating current
+The units is A.
+D is an Integer ranging from 0 to 9.
+D DDD.D AC output rating voltage
+The units is V.
+E is an Integer ranging from 0 to 9.
+E EE.E AC output rating frequency
+The units is Hz.
+2
+
+==== PI30_PIP-GK_MK-Protocol.pdf page 6 ====
+V is an Integer ranging from 0 to 9.
+V VV.V Battery re-discharge voltage
+The unit is V.
+0: As long as one unit of inverters
+has connect PV, parallel system will
+consider PV OK;
+W W PV OK condition for parallel
+1: Only All of inverters have connect
+PV, parallel system will consider PV
+OK
+0: PV input max current will be the
+max charged current;
+X X PV power balance 1: PV input max power will be the
+sum of the max charged power and
+loads power.
+Y is an Integer ranging from 0 to 9.
+Max. charging time at C.V
+Y YYY The unit is minute.
+stage
+(Only for PIP-MK )
+0: Automatically
+Operation Logic(For PIP-MK 1: On-line mode
+Z Z
+2: ECO mode
+(Only for PIP-MK )
+2.9 QFLAG<cr>: Device flag status inquiry
+ExxxDxxx is the flag status. E means enable, D means disable
+x Control setting
+A Enable/disable silence buzzer or open buzzer
+B Enable/Disable overload bypass function
+Enable/Disable LCD display escape to default page after
+K
+1min timeout
+U Enable/Disable overload restart
+V Enable/Disable over temperature restart
+X Enable/Disable backlight on
+Y Enable/Disable alarm on when primary source interrupt
+Z Enable/Disable fault code record
+Example:
+Computer: QFLAG <CRC><cr>
+Device: (ExxxDxxx <CRC><cr>
+4
+
+==== PI30_PIP-GK_MK-Protocol.pdf page 7 ====
+2.10 QPIGS<cr>: Device general status parameters inquiry
+Computer: QPIGS <CRC><cr>
+Device: (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KKK OOO TTTT EE.E
+UUU.U WW.WW PPPPP b7b6b5b4b3b2b1b0 QQ VV MMMMM b10b9b8<CRC><cr>
+Data Description Notes
+a ( Start byte
+b BBB.B Grid voltage B is an Integer number 0 to 9. The units is V.
+C CC.C Grid frequency C s an Integer number 0 to 9. The units is Hz.
+D DDD.D AC output voltage D is an Integer number 0 to 9. The units is V.
+E EE.E AC output frequency E is an Integer number from 0 to 9. The units
+is Hz.
+F FFFF AC output apparent F is an Integer number from 0 to 9. The units
+power is VA
+G GGGG G is an Integer ranging from 0 to 9. The units
+AC output active power
+is W.
+H HHH Output load percent DEVICE: HHH is Maximum of W% or VA%.
+VA% is a percent of apparent power.
+W% is a percent of active power.
+The units is %.
+I III BUS voltage I is an Integer ranging from 0 to 9. The units is
+V.
+j JJ.JJ Battery voltage J is an Integer ranging from 0 to 9. The units
+is V.
+k KKK Battery charging K is an Integer ranging from 0 to 9. The units
+current is A.
+o OOO Battery capacity X is an Integer ranging from 0 to 9. The units
+is %.
+P TTTT Inverter heat sink T is an integer ranging from 0 to 9. The units
+temperature is ℃
+r EE.E PV Input current for E is an Integer ranging from 0 to 9. The units
+battery. is A.
+t UUU.U PV Input voltage 1 U is an Integer ranging from 0 to 9. The units
+is V.
+u WW.WW Battery voltage from W is an Integer ranging from 0 to 9. The units
+SCC is V.
+w PPPPP Battery discharge P is an Integer ranging from 0 to 9. The units
+current is A.
+x b7b6b5b4 Device status b7: PV or AC feed the load, 1:yes,0:no
+b3b2b1b0 b6: configuration status: 1: Change 0:
+5
+
+==== PI30_PIP-GK_MK-Protocol.pdf page 9 ====
+53 Inverter soft start failed
+55 Over DC voltage on output of inverter
+57 Current sensor failed
+58 Output voltage is too low
+59 PV voltage high
+60 Inverter negative power
+71 Parallel version different
+72 Output circuit failed
+80 CAN communication failed
+81 Parallel host line lost
+(For PIP-MK)
+82 Parallel synchronized signal lost
+83 Parallel battery voltage detect different
+84 Parallel Line voltage or frequency detect different
+85 Parallel Line input current unbalanced
+86 Parallel output setting different
+2.11 QMOD<cr>: Device Mode inquiry
+Computer: QMOD<CRC><cr>
+Device: (M<CRC><cr>
+MODE CODE(M) Notes
+Power On Mode P Power on mode
+Standby Mode S Standby mode
+Line Mode L Line Mode
+Battery Mode B Battery mode
+Fault Mode F Fault mode
+Power saving Mode H Power saving Mode
+Shutdown Mode D Shutdown Mode
+Charge Mode C Charge Mode
+Bypass mode
+Bypass Mode Y
+(For PIP-MK)
+ECO mode
+ECO mode E
+(For PIP-MK)
+Example:
+7
+
+==== PI30_PIP-GK_MK-Protocol.pdf page 10 ====
+Computer: QMOD<CRC><cr>
+DEVICE: (L<CRC><cr>
+Means: the current DEVICE mode is Grid mode.
+2.12 QPIWS<cr>: Device Warning Status inquiry
+Computer: QPIWS<CRC> <cr>
+Device: (a0a1…..a34a35<CRC><cr>
+a0,…,a35 is the warning status. If the warning is happened, the relevant bit will set 1, else the
+relevant bit will set 0. The following table is the warning code.
+bit Warning Description
+a0 PV loss Warning
+a1 Inverter fault Fault
+a2 Bus Over Fault
+a3 Bus Under Fault
+a4 Bus Soft Fail Fault
+a5 LINE_FAIL Warning
+a6 OPVShort Fault
+a7 Inverter voltage too low Fault
+a8 Inverter voltage too high Fault
+Compile with a1, if a1=1,fault,
+a9 Over temperature
+otherwise warning
+Compile with a1, if a1=1,fault,
+a10 Fan locked
+otherwise warning
+Compile with a1, if a1=1,fault,
+a11 Battery voltage high
+otherwise warning
+a12 Battery low alarm Warning
+a13 Reserved
+a14 Battery under shutdown Warning
+a15 Battery derating Warning
+Compile with a1, if a1=1,fault,
+a16 Over load
+otherwise warning
+a17 Eeprom fault Warning
+a18 Inverter Over Current Fault
+a19 Inverter Soft Fail Fault
+a20 Self Test Fail Fault
+a21 OP DC Voltage Over Fault
+a22 Battery Open Fault
+a23 Current Sensor Fail Fault
+a24 Battery Short Fault(For PIP-MK)
+8
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 1 ====
+LV5048 C ommunica tion Protocol
+目录
+1 Message format ...................................................................................................................................... 2
+2 Inquiry Command .................................................................................................................................. 2
+2.1 QID<cr>: The inverter serial number inquiry .......................................................................................... 2
+2.2 QSID<cr>: The inverter serial number inquiry (the length is more than 14) ........................................ 2
+2.3 QVFW<cr>: Main CPU firmware version inquiry .................................................................................. 2
+2.4 QVFW2<cr> :Another CPU firmware version inquiry ........................................................................... 2
+2.5 QPIRI<cr>: Inverter rated information inquiry ...................................................................................... 2
+2.6 QFLAG<cr>: Inverter flag status inquiry ................................................................................................. 4
+2.7 QPIGS<cr>: Inverter general status parameters inquiry ........................................................................ 5
+2.8 QPIGS2<cr>: Inverter general status parameters inquiry ...................................................................... 6
+2.9 QPGSn<cr>: Parallel Information inquiry ............................................................................................... 7
+2.10 QP2GSn<cr>: Parallel Information inquiry ........................................................................................... 10
+2.11 QMOD<cr>: Inverter Mode inquiry .........................................................................................................11
+2.12 QPIWS<cr>: Inverter Warning Status inquiry .......................................................................................11
+2.13 QDI<cr>: The default setting value information .................................................................................... 13
+2.14 QMCHGCR<cr>: Enquiry selectable value about max charging current ........................................... 15
+2.15 QMUCHGCR<cr>: Enquiry selectable value about max utility charging current ............................. 15
+2.16 QOPM<cr>: Enquiry output mode .......................................................................................................... 15
+2.17 QGMN<cr>: Query general model name ................................................................................................ 15
+2.18 QBEQI<cr>: Battery equalization status parameters inquiry .............................................................. 15
+3 Setting parameters Command ............................................................................................................. 16
+3.1 PE<XXX>/PD<XXX><CRC><cr>: setting some status enable/disable ............................................... 16
+3.2 PF<cr>: Setting control parameter to default value ............................................................................... 17
+3.3 MNCHGC<mnnn><cr>: Setting max charging current ........................................................................ 17
+3.4 MUCHGC<mnn><cr>: Setting utility max charging current ............................................................... 18
+3.5 F<nn><cr>: Setting Inverter output rating frequency ........................................................................... 18
+3.6 POP<NN><cr>: Setting Inverter output source priority ....................................................................... 18
+3.7 PBCV<nn.n><cr>: Set battery re-charge voltage ................................................................................... 18
+3.8 PBDV<nn.n><cr>: Set battery re-discharge voltage .............................................................................. 18
+2
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 4 ====
+1 Message format
+Baud rate Start bit Data bit Parity bit Stop bit
+2400 1 8 N 1
+2 Inquiry Command
+2.1 QID<cr>: The inverter serial number inquiry
+Computer: QID <CRC><cr>
+Inverter: (XXXXXXXXXXXXXX <CRC><cr>
+2.2 QSID<cr>: The inverter serial number inquiry (the length is more than 14)
+Computer: QSID<CRC><cr>
+Inverter: (NNXXXXXXXXXXXXXXXXXXXX <CRC><cr>
+NN: Serial number valid length, X: Serial number, invalid part is filled as ‘0’, total X is 20.
+2.3 QVFW<cr>: Main CPU firmware version inquiry
+Computer: QVFW<CRC><cr>
+Inverter: (VERFW:<NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+Example:
+Computer: QVFW<CRC><cr>
+Inverter: (VERFW:00123.01<CRC><cr>
+00123: firmware series number；01：version
+2.4 QVFW2<cr> :Another CPU firmware version inquiry
+Computer: QVFW2<CRC><cr>
+UPS: (VERFW2: <NNNNN.NN><CRC><cr>
+<N> is a HEX number from 0...9 or A…F.
+2.5 QPIRI<cr>: Inverter rated information inquiry
+Computer: QPIRI<CRC><cr>
+Inverter: (BBB.B CC.C DDD.D EE.E FF.F HHHH IIII JJ.J KK.K JJ.J KK.K LL.L O PP QQ0
+O P Q R SS T U VV.V W X YYY<CRC><cr>
+Date Description Notes
+A ( Start byte
+2
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 6 ====
+01: Off Grid;
+10: Hybrid.
+0: Transformerless
+T T Topology
+1: Transformer
+1: parallel output(0°)
+2: Phase 1 of 3 Phase output
+3: Phase 2 of 3 Phase output
+U U Output mode
+4: Phase 3 of 3 Phase output
+5: parallel output(120°)
+6: parallel output(180°)
+V is an Integer ranging from 0 to 9.
+V VV.V Battery re-discharge voltage
+The unit is V.
+0: As long as one unit of inverters
+has connect PV, parallel system will
+consider PV OK;
+W W PV OK condition for parallel
+1: Only All of inverters have connect
+PV, parallel system will consider PV
+OK
+0: PV input max current will be the
+max charged current;
+X X PV power balance 1: PV input max power will be the
+sum of the max charged power and
+loads power.
+Max. charging time at C.V Y is an Integer ranging from 0 to 9.
+Y YYY
+stage The unit is minute.
+2.6 QFLAG<cr>: Inverter flag status inquiry
+ExxxDxxx is the flag status. E means enable, D means disable
+x Control setting
+A Enable/disable silence buzzer or open buzzer
+B Enable/Disable overload bypass function
+J Enable/Disable power saving
+Enable/Disable LCD display escape to default page after
+K
+1min timeout
+U Enable/Disable overload restart
+V Enable/Disable over temperature restart
+X Enable/Disable backlight on
+Y Enable/Disable alarm on when primary source interrupt
+Z Enable/Disable fault code record
+4
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 7 ====
+Computer: QFLAG <CRC><cr>
+Inverter: (ExxxDxxx <CRC><cr>
+2.7 QPIGS<cr>: Inverter general status parameters inquiry
+Computer: QPIGS <CRC><cr>
+Inverter: (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KKK OOO TTTT EEEE
+UUU.U WW.WW PPPPP b7b6b5b4b3b2b1b0 QQ VV MMMMM b10b9b8<CRC><cr>
+Data Description Notes
+a ( Start byte
+b BBB.B L1 AC input voltage B is an Integer number 0 to 9. The units is V.
+C CC.C L1 AC input frequency C s an Integer number 0 to 9. The units is Hz.
+D DDD.D L1 AC output voltage D is an Integer number 0 to 9. The units is V.
+E EE.E L1 AC output E is an Integer number from 0 to 9. The units
+frequency is Hz.
+F FFFF L1 AC output apparent F is an Integer number from 0 to 9. The units
+power is VA
+G GGGG L1 AC output active G is an Integer ranging from 0 to 9. The units
+power is W.
+H HHH L1 Output load percent INVERTER: HHH is Maximum of W% or
+VA%.
+VA% is a percent of apparent power.
+W% is a percent of active power.
+The unit is %.
+I III BUS voltage I is an Integer ranging from 0 to 9. The units is
+V.
+j JJ.JJ Battery voltage J is an Integer ranging from 0 to 9. The units
+is V.
+k KKK Battery charging K is an Integer ranging from 0 to 9. The units
+current is A.
+o OOO Battery capacity X is an Integer ranging from 0 to 9. The units
+is %.
+P TTTT Inverter heat sink T is an integer ranging from 0 to 9. The units
+temperature is ℃
+r EEEE PV1 Input current for E is an Integer ranging from 0 to 9. The units
+battery. is A.
+t UUU.U PV1 Input voltage U is an Integer ranging from 0 to 9. The units
+is V.
+u WW.WW Battery voltage from W is an Integer ranging from 0 to 9. The units
+SCC is V.
+5
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 8 ====
+w PPPPP Battery discharge P is an Integer ranging from 0 to 9. The units
+current is A.
+x b7b6b5b4 Inverter status b7:1 SCC 1 OK, 0 SCC 1 LOSS
+b3b2b1b0 b6: 1 L1 AC Charging
+0 L1 AC no charging
+b5: 1 L1 SCC Charging
+0 L1 SCC no charging
+b4b3: 2 battery open, 1 battery under, 0
+battery normal
+b2: 1 L1 Line loss, 0 L1 Line ok
+b1: 1 load on, 0 load off
+b0: configuration status:
+y QQ Reserved
+z VV Reserved
+MMMM PV Charging power M is an Integer ranging from 0 to 9. The unit
+M is watt.
+b10b9b8 Inverter status b10: flag for charging to floating mode
+b9: Switch On
+b8: Reserved
+2.8 QPIGS2<cr>: Inverter general status parameters inquiry
+Computer: QPIGS2 <CRC><cr>
+Inverter: (AAA.A BB.B CCC.C DD.D EEEE FFFF GGG HHHH III.I JJ.JJ b7b6b5b4b3b2b1b0
+<CRC><cr>
+Data Description Notes
+a ( Start byte
+b AAA.A L2 AC input voltage A is an Integer number 0 to 9. The units is V.
+c BB.B L2 AC input frequency B s an Integer number 0 to 9. The units is Hz.
+d CCC.C L2 AC output voltage C is an Integer number 0 to 9. The units is V.
+e DD.D L2 AC output D is an Integer number from 0 to 9. The units
+frequency is Hz.
+f EEEE L2 AC output apparent E is an Integer number from 0 to 9. The units
+power is VA
+g FFFF L2 AC output active F is an Integer ranging from 0 to 9. The units
+power is W.
+h GGG L2 Output load percent INVERTER: HHH is Maximum of W% or
+VA%.
+VA% is a percent of apparent power.
+W% is a percent of active power.
+The unit is %.
+6
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 9 ====
+i HHHH PV2 Input current for H is an Integer ranging from 0 to 9. The units
+battery. is A.
+j III.I PV2 Input voltage I is an Integer ranging from 0 to 9. The units is
+V.
+k JJ.JJ Battery Voltage(L2) J is an Integer ranging from 0 to 9. The units
+is V.
+l b7b6b5b4 Inverter status b7: 1 SCC 2 OK, 0 SCC 2 LOSS
+b3b2b1b0 b6: 1 L2 AC Charging
+0 L2 AC no charging
+b5: 1 SCC 2 Charging
+0 SCC 2 no charging
+b4b3: Reserved
+b2: 1 L2 Line loss, 0 L2 Line ok
+b1: 1 L2 load on, 0 L2 load off
+b0: Reserved
+2.9 QPGSn<cr>: Parallel Information inquiry
+Computer: QPGSn<CRC><cr>
+Inverter: (A BBBBBBBBBBBBBB C DD EEE.E FF.FF GGG.G HH.HH IIII JJJJ KKK LL.L
+MMM NNN OOO.O PPP QQQQQ RRRRR SSS b7b6b5b4b3b2b1b0 T U VVV WWW ZZ XX
+YYY<CRC><cr>
+Date Description Notes
+A ( Start byte
+0：No exist.
+B A This ID(n) is exist or not
+1：Exist.
+BBBBBBBB B is an Integer ranging from 0 to
+C Serial number
+BBBBBB 9.
+D C Work mode C is an character, refer to QMOD
+D is an Integer ranging from 0 to
+E DD Fault code
+9.
+E is an Integer ranging from 0 to
+F EEE.E L1 AC input voltage
+9. The units is V.
+F is an Integer ranging from 0 to
+G FF.FF L1 AC input frequency
+9. The unit is Hz.
+G is an Integer ranging from 0 to
+H GGG.G L1 AC output voltage
+9. The units is V.
+H is an Integer ranging from 0 to
+I HH.HH L1 AC output frequency
+9. The unit is Hz.
+L1 AC output apparent I is an Integer number from 0 to
+J IIII
+power 9. The units is VA
+K JJJJ L1 AC output active power J is an Integer ranging from 0 to
+7
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 12 ====
+72 Output circuit failed
+80 CAN communication failed
+81 Parallel host line lost
+82 Parallel synchronized signal lost
+83 Parallel battery voltage detect different
+84 Parallel Line voltage or frequency detect different
+85 Parallel Line input current unbalanced
+86 Parallel output setting different
+2.10 QP2GSn<cr>: Parallel Information inquiry
+Computer: QP2GSn<CRC><cr>
+Inverter: (A BBBBBBBBBBBBBB C DD EEE.E FF.FF GGG.G HH.HH IIII JJJJ KKK LL.L
+MMM NNN OOO.O PP b7b6b5b4b3b2b1b0 <CRC><cr>
+Date Description Notes
+A ( Start byte
+0：No exist.
+B A This ID(n) is exist or not
+1：Exist.
+BBBBBBBB B is an Integer ranging from 0 to
+C Serial number(L2)
+BBBBBB 9.
+D C Work mode(L2) C is an character, refer to QMOD
+D is an Integer ranging from 0 to
+E DD Fault code (L2)
+9.
+E is an Integer ranging from 0 to
+F EEE.E L2 AC input voltage
+9. The units is V.
+F is an Integer ranging from 0 to
+G FF.FF L2 AC input frequency
+9. The unit is Hz.
+G is an Integer ranging from 0 to
+H GGG.G L2 AC output voltage
+9. The units is V.
+H is an Integer ranging from 0 to
+I HH.HH L2 AC output frequency
+9. The unit is Hz.
+L2 AC output apparent I is an Integer number from 0 to
+J IIII
+power 9. The units is VA
+J is an Integer ranging from 0 to
+K JJJJ L2 AC output active power
+9. The units is W.
+K is an Integer ranging from 0 to
+L KKK L2 Load percentage
+9. The units is %.
+L is an Integer ranging from 0 to
+M LL.L Battery voltage(L2)
+9. The unit is V.
+N MMM Battery charging M is an Integer ranging from 0 to
+10
+
+==== PI41_LV5048.5KW.protocol-20190222.for.customer.pdf page 13 ====
+current(L2) 9. The units is A.
+N is an Integer ranging from 0 to
+O NNN Battery capacity(L2)
+9. The units is %.
+O is an Integer ranging from 0 to
+P OOO. O PV Input Voltage 2 9.
+The units is V.
+PV2 input current for P is an Integer ranging from 0 to
+Q PP
+battery 9. The units is A.
+b7: 1 SCC 2 OK, 0 SCC 2 LOSS
+b6: 1 L2 AC Charging
+0 L2 AC no charging
+b5: 1 SCC 2 Charging
+0 SCC 2 no charging
+R b7b6b5b4b3b2b1b0 Inverter Status b4b3: 2 battery open, 1 battery
+under, 0 battery normal
+b2: 1 L2 Line loss, 0 L2 Line ok
+b1: 1 L2 load on, 0 L2 load off
+b0: configuration status:
+1: Change 0: unchanged
+2.11 QMOD<cr>: Inverter Mode inquiry
+Computer: QMOD<CRC><cr>
+Inverter: (M<CRC><cr>
+MODE CODE(M) Notes
+Power On Mode P Power on mode
+Standby Mode S Standby mode
+Line Mode L Line Mode
+Battery Mode B Battery mode
+Fault Mode F Fault mode
+Power saving Mode H Power saving Mode
+Example:
+Computer: QMOD<CRC><cr>
+INVERTER: (L<CRC><cr>
+Means: the current INVERTER mode is Grid mode.
+2.12 QPIWS<cr>: Inverter Warning Status inquiry
+Computer: QPIWS<CRC> <cr>
+Inverter: (a0a1…..a30a31<CRC><cr>
+a0,…,a31 is the warning status. If the warning is happened, the relevant bit will set 1, else the
+11
+
+==== Deye Modbus储能-组串-微逆宁波德业V118.pdf page 29 ====
+-11使能
+加州低压高压穿越 R/W [0,1] 0: disable 1: enable
+CA_LHVRT使能
+California low pressure
+high pressure through
+331 CA_LHVRT enable
+332 CA_HV2 R/W [1000,3000] 0.1V
+333 CA_HV1 R/W
+334 CA_LV1 R/W
+335 CA_LV2 R/W
+336 CA_LV3 R/W
+337 CA_HV2_Time R/W [0,300] 0 is 0.16S
+338 CA_HV1_Time R/W
+339 CA_LV1_Time R/W
+340 CA_LV2_Time R/W
+341 CA_LV3_Time R/W
+加州低频高频穿越 R/W
+CA_LHFRT使能
+California low frequency
+high frequency
+traverses CA_LHFRT
+342 enable
+343 CA_HF2 R/W [4500,6500] 0.01Hz
+344 CA_HF1 R/W
+345 CA_LF1 R/W
+346 CA_LF2 R/W
+347 CA_HF2_Time R/W [0,300]
+348 CA_HF1_Time R/W
+349 CA_LF1_Time
+350 CA_LF2_Time
+加州CA_QV使能
+California CA_QV
+351 enable
+352 CA_QV_V1 [1000,3000]
+353 CA_QV_V2
+354 CA_QV_V3
+355 CA_QV_V4 [-44,+44] 0.01
+356 CA_QV_Q1
+357 CA_QV_Q2
+358 CA_QV_Q3
+359 CA_QV_Q4
+加州CA_FW使能
+California CA_FW
+360 enable
+361 CA_Fstart
+362 CA_Fstop
+加州CA_VW使能
+California CA_VW
+363 enable
+364 CA_Vstart
+365 CA_Vstop
+

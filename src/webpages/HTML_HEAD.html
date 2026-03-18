@@ -1,22 +1,71 @@
 <!DOCTYPE html>
-<html lang="en" xml:lang="en" data-bs-theme="%pre_darkmode%">
+<html lang="en" xml:lang="en" data-bs-theme="light">
 
 <head>
     <meta http-equiv="content-type" content="text/html;charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="shortcut icon"
-        href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAHsSURBVDhPrZLLSxtRFMZHY9A2Wou0FB+oiZUWTaPEVo15qInBjamSqLFVk0rV0ke0saAmgg90o5v42NQHCmYkXehC/wbFuK//gG6yyiIki0Dg69zDEEgp46L+4HKHc8/3zTnnXg7/yf0b7O7tIZVK0XcikaBdCjKIx+MI8jzGxj+hWadHu9mC94NDlHAXZBAIrENTVw+O49LrlaYOfv8cJUnBnV9cYNjlJlGOPBfZMnnaZGrqBw6DQTH131AFLtcHEjDxQ0UBunvsMBhMWFhcoiQpyODj6Fj6rz6fH03NOmpL2/BGmEkLnZdXVGJ+YRFPnj5DKPSLxAzu5uYWkUgEXba3KHxchP39AyhVVVheXoFarYHZ0oHPX76iplYNj2cCptY29DsHRLlYQTKZxOnpGaLRKFRV1dAbjLAJhsUlZdBqX8PpfIeS0jKhCiW+e73gsmQkZpABIxaL4ff1NbXxzeNBVnYOFPmPUP3iJazWTuQ9UNCQJyYnKef4+IR0aQMGzx/Bbu/Fz+0dDA4Nw+0ewfTMLFZX1+imWIw9NEdvPzY2t0iTYeAT7r1Fb4TBaBIeUwfNRal6TiU7HH0UY2dt7WY0NulIk2HwN2y4FosV8tw8XIbDYjQTSYPw1RUC6xvU0mGQF6OZSBrcDfAHIwsaPAvZdQgAAAAASUVORK5CYII=">
+    <link rel="icon" href="/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm"
-        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 
-    <script src=" https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js "></script>
+    <title>Solar2MQTT</title>
+    <script>
+        window.S2MQTT = window.S2MQTT || {};
+        window.S2MQTT.metaPromise = null;
+        window.S2MQTT.configPromise = null;
 
-    <title>%pre_device_name%</title>
+        function loadMeta() {
+            if (window.S2MQTT.metaPromise) {
+                return window.S2MQTT.metaPromise;
+            }
+            window.S2MQTT.metaPromise = fetch('/meta', { cache: 'no-store' })
+                .then(function (response) { return response.json(); })
+                .then(function (meta) {
+                    meta = meta || {};
+                    window.S2MQTT.meta = meta;
+                    if (typeof meta.dark_mode !== 'undefined') {
+                        document.documentElement.setAttribute('data-bs-theme', meta.dark_mode ? 'dark' : 'light');
+                    }
+                    if (meta.device_name) {
+                        document.title = meta.device_name;
+                        var nameEl = document.getElementById('device_name_text');
+                        if (nameEl) {
+                            nameEl.textContent = meta.device_name;
+                        }
+                    }
+                    var swEl = document.getElementById('software_version');
+                    if (swEl && meta.software_version) {
+                        swEl.textContent = meta.software_version;
+                    }
+                    return meta;
+                })
+                .catch(function () { return {}; });
+            return window.S2MQTT.metaPromise;
+        }
+
+        function loadConfig() {
+            if (window.S2MQTT.configPromise) {
+                return window.S2MQTT.configPromise;
+            }
+            window.S2MQTT.configPromise = fetch('/config', { cache: 'no-store' })
+                .then(function (response) { return response.json(); })
+                .then(function (config) {
+                    config = config || {};
+                    window.S2MQTT.config = config;
+                    return config;
+                })
+                .catch(function () { return {}; });
+            return window.S2MQTT.configPromise;
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            loadMeta();
+        });
+    </script>
+    <style>.dF span:not(:last-child) {padding-right: 6px;}
+    </style>
+
 </head>
 
 <body>

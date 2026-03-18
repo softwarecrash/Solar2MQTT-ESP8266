@@ -1,0 +1,30 @@
+language: python
+
+python:
+  - 2.7
+
+sudo: false
+
+cache:
+  directories:
+    - ~/.platformio
+
+# update Makefile if target boards added
+env:
+  - PLATFORMIO_BOARD=uno
+  - PLATFORMIO_BOARD=due
+  - PLATFORMIO_BOARD=huzzah
+  - PLATFORMIO_BOARD=genuino101
+  - PLATFORMIO_BOARD=teensy31
+
+install:
+  - pip install -U platformio
+
+before_script:
+  - env
+  - echo $HOME
+  - echo $TRAVIS_BUILD_DIR
+  - ls -al $PWD
+
+script:
+  - make build

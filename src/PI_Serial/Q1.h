@@ -10,99 +10,106 @@ examples:
 22 fields, length 87   00000 00000 01 01 00 030 027 028 029 00 00 000 0031 0364 0000 00.00 11 07 00 3741 530 3 - from derLoosi
 length helper: https://elmar-eigner.de/text-zeichen-laenge.html
 */
-
-static const char *const DESCR_Time_until_absorb_charge = "Time_until_absorb_charge"; // time since absorb start
-static const char *const DESCR_Time_until_float_charge = "Time_until_float_charge";   // tiem since float charge start
-static const char *const DESCR_SCC_Flag = "SCC_Flag";                                 // SCC Flag
-static const char *const DESCR_AllowSccOnFlag = "AllowSccOnFlag";                     // AllowSccOnFlag
-static const char *const DESCR_Charge_Average_Current = "Charge_Average_Current";     // ChargeAverageCurrent
-static const char *const DESCR_Tracker_temperature = "Tracker_temperature";           // Temp sensor 1 SCC PWM temperature
-static const char *const DESCR_Inverter_temperature = "Inverter_temperature";         // temp sensor 2
-static const char *const DESCR_Battery_temperature = "Battery_temperature";           // temp sensor 3
-static const char *const DESCR_Transformer_temperature = "Transformer_temperature";   //
-static const char *const DESCR_Fan_lock_status = "Fan_lock_status";                   // error flag for blocked fan
-static const char *const DESCR_Fan_speed = "Fan_speed";                               // Fan PWM speed
-static const char *const DESCR_SCC_charge_power = "SCC_charge_power";                 // SCC charge power
-static const char *const DESCR_Parallel_Warning = "Parallel_Warning";                 // Parallel Warning
-static const char *const DESCR_Sync_frequency = "Sync_frequency";                     // Sync frequency
-static const char *const DESCR_Inverter_charge_state = "Inverter_charge_state";       // charge state
-static const char *const DESCR_unknown = "";                                          // unknown state
-
+unsigned int Q1_47_length = 13;
 const char *const Q1_47[] = {
-    // [PI34 / MPPT-3000], [PI30 HS MS MSX], [PI30 Revo], [PI30 PIP], [PI41 / LV5048]
-    DESCR_Time_until_absorb_charge,
-    DESCR_Time_until_float_charge,
+    DESCR_Time_Until_Absorb_Charge,
+    DESCR_Time_Until_Float_Charge,
     DESCR_unknown,
-    DESCR_Tracker_temperature,
-    DESCR_Inverter_temperature,
-    DESCR_Battery_temperature,
-    DESCR_Transformer_temperature,
-    DESCR_unknown,
+    DESCR_Tracker_Temperature,
+    DESCR_Inverter_Temperature,
+    DESCR_Battery_Temperature,
+    DESCR_Transformer_Temperature,
     DESCR_unknown,
     DESCR_unknown,
-    DESCR_Fan_speed,
     DESCR_unknown,
-    DESCR_Inverter_charge_state,
+    DESCR_Fan_Speed,
+    DESCR_unknown,
+    DESCR_Inverter_Charge_State,
 };
-// Raw length 70
-static const char *const Q1_70[] = {
-    // [PI30]
-    DESCR_Time_until_absorb_charge, // Time until the end of absorb charging
-    DESCR_Time_until_float_charge,  // Time until the end of float charging
+unsigned int Q1_70_length = 17;
+const char *const Q1_70[] = {
+    DESCR_Time_Until_Absorb_Charge, // Time until the end of absorb charging
+    DESCR_Time_Until_Float_Charge,  // Time until the end of float charging
     DESCR_unknown,                  // SCC Flag
     DESCR_unknown,                  // AllowSccOnFlag
     DESCR_unknown,                  // ChargeAverageCurrent
-    DESCR_Tracker_temperature,      // SCC PWM temperature
-    DESCR_Inverter_temperature,
-    DESCR_Battery_temperature,
-    DESCR_Transformer_temperature,
+    DESCR_Tracker_Temperature,      // SCC PWM temperature
+    DESCR_Inverter_Temperature,
+    DESCR_Battery_Temperature,
+    DESCR_Transformer_Temperature,
     DESCR_unknown, // GPIO13
-    DESCR_Fan_lock_status,
+    DESCR_Fan_Lock_Status,
     DESCR_unknown,
-    DESCR_Fan_speed, // Fan PWM speed
+    DESCR_Fan_Speed, // Fan PWM speed
     DESCR_unknown,   // SCC charge power
     DESCR_unknown,   // Parallel Warning
     DESCR_unknown,   // Sync frequency
-    DESCR_Inverter_charge_state,
+    DESCR_Inverter_Charge_State,
 };
-static const char *const Q1_87[] = {
-    DESCR_Time_until_absorb_charge, // Time until the end of absorb charging
-    DESCR_Time_until_float_charge,  // Time until the end of float charging
+unsigned int Q1_87_length = 17;
+const char *const Q1_87[] = {
+    DESCR_Time_Until_Absorb_Charge, // Time until the end of absorb charging
+    DESCR_Time_Until_Float_Charge,  // Time until the end of float charging
     DESCR_unknown,                  // SCC Flag
     DESCR_unknown,                  // AllowSccOnFlag
     DESCR_unknown,                  // ChargeAverageCurrent
-    DESCR_Tracker_temperature,      // SCC PWM temperature
-    DESCR_Inverter_temperature,
-    DESCR_Battery_temperature,
-    DESCR_Transformer_temperature,
+    DESCR_Tracker_Temperature,      // SCC PWM temperature
+    DESCR_Inverter_Temperature,
+    DESCR_Battery_Temperature,
+    DESCR_Transformer_Temperature,
     DESCR_unknown, // GPIO13
-    DESCR_Fan_lock_status,
+    DESCR_Fan_Lock_Status,
     DESCR_unknown,
-    DESCR_Fan_speed, // Fan PWM speed
+    DESCR_Fan_Speed, // Fan PWM speed
     DESCR_unknown,   // SCC charge power
     DESCR_unknown,   // Parallel Warning
     DESCR_unknown,   // Sync frequency
-    DESCR_Inverter_charge_state,
+    DESCR_Inverter_Charge_State,
 };
+unsigned int Q1_22_length = 22;
+const char *const Q1_22[] = {
+    DESCR_Time_Until_Absorb_Charge, // Time until the end of absorb charging
+    DESCR_Time_Until_Float_Charge,  // Time until the end of float charging
+    DESCR_unknown,                  // SCC Flag
+    DESCR_unknown,                  // AllowSccOnFlag
+    DESCR_unknown,                  // ChargeAverageCurrent
+    DESCR_Tracker_Temperature,      // SCC PWM temperature
+    DESCR_Inverter_Temperature,
+    DESCR_Battery_Temperature,
+    DESCR_Transformer_Temperature,
+    DESCR_unknown, // GPIO13
+    DESCR_Fan_Lock_Status,
+    DESCR_unknown,
+    DESCR_Fan_Speed, // Fan PWM speed
+    DESCR_unknown,   // SCC charge power
+    DESCR_unknown,   // Parallel Warning
+    DESCR_unknown,   // Sync frequency
+    DESCR_Inverter_Charge_State,
+    DESCR_unknown,
+    DESCR_unknown,
+    DESCR_unknown,
+    DESCR_unknown,
+    DESCR_unknown,
+};
+unsigned int Q1_108_length = 27;
 const char *const Q1_108[] = {
-    // [PI18]
-    DESCR_Time_until_absorb_charge, // Time until the end of absorb charging
-    DESCR_Time_until_float_charge,  // Time until the end of float charging
+    DESCR_Time_Until_Absorb_Charge, // Time until the end of absorb charging
+    DESCR_Time_Until_Float_Charge,  // Time until the end of float charging
     DESCR_SCC_Flag,                 // SCC Flag
     DESCR_AllowSccOnFlag,           // AllowSccOnFlag
     DESCR_Charge_Average_Current,   // ChargeAverageCurrent
-    DESCR_Tracker_temperature,      // SCC PWM temperature
-    DESCR_Inverter_temperature,
-    DESCR_Battery_temperature,
-    DESCR_Transformer_temperature,
+    DESCR_Tracker_Temperature,      // SCC PWM temperature
+    DESCR_Inverter_Temperature,
+    DESCR_Battery_Temperature,
+    DESCR_Transformer_Temperature,
     DESCR_unknown, // GPIO13
-    DESCR_Fan_lock_status,
+    DESCR_Fan_Lock_Status,
     DESCR_unknown,
-    DESCR_Fan_speed,        // Fan PWM speed
-    DESCR_SCC_charge_power, // SCC charge power
+    DESCR_Fan_Speed,        // Fan PWM speed
+    DESCR_SCC_Charge_Power, // SCC charge power
     DESCR_Parallel_Warning, // Parallel Warning
-    DESCR_Sync_frequency,   // Sync frequency
-    DESCR_Inverter_charge_state,
+    DESCR_Sync_Frequency,   // Sync frequency
+    DESCR_Inverter_Charge_State,
     DESCR_unknown,
     DESCR_unknown,
     DESCR_unknown,
@@ -114,374 +121,77 @@ const char *const Q1_108[] = {
     DESCR_unknown,
     DESCR_unknown,
 };
-/*
-static const char *const Q1_47[] = {
-    "Time_until_absorb_charge",
-    "Time_until_float_charge",
-    "",
-    "Tracker_temperature",
-    "Inverter_temperature",
-    "Battery_temperature",
-    "Transformer_temperature",
-    "",
-    "",
-    "",
-    "Fan_speed",
-    "",
-    "Inverter_charge_state",
-};
-static const char *const Q1_70[] = {
-    "Time_until_absorb_charge", // Time until the end of absorb charging
-    "Time_until_float_charge",  // Time until the end of float charging
-    "",                         // SCC Flag
-    "",                         // AllowSccOnFlag
-    "",                         // ChargeAverageCurrent
-    "Tracker_temperature",      // SCC PWM temperature
-    "Inverter_temperature",
-    "Battery_temperature",
-    "Transformer_temperature",
-    "", // GPIO13
-    "Fan_lock_status",
-    "",
-    "Fan_speed", // Fan PWM speed
-    "",          // SCC charge power
-    "",          // Parallel Warning
-    "",          // Sync frequency
-    "Inverter_charge_state",
-};
-static const char *const Q1_87[] = {
-    "Time_until_absorb_charge", // Time until the end of absorb charging
-    "Time_until_float_charge",  // Time until the end of float charging
-    "",                         // SCC Flag
-    "",                         // AllowSccOnFlag
-    "",                         // ChargeAverageCurrent
-    "Tracker_temperature",      // SCC PWM temperature
-    "Inverter_temperature",
-    "Battery_temperature",
-    "Transformer_temperature",
-    "", // GPIO13
-    "Fan_lock_status",
-    "",
-    "Fan_speed", // Fan PWM speed
-    "",          // SCC charge power
-    "",          // Parallel Warning
-    "",          // Sync frequency
-    "Inverter_charge_state",
-};
-static const char *const Q1_108[] = {
-    // [PI18]
-    "Time_until_absorb_charge", // Time until the end of absorb charging
-    "Time_until_float_charge",  // Time until the end of float charging
-    "SCC_Flag",                 // SCC Flag
-    "AllowSccOnFlag",           // AllowSccOnFlag
-    "Charge_Average_Current",   // ChargeAverageCurrent
-    "Tracker_temperature",      // SCC PWM temperature
-    "Inverter_temperature",
-    "Battery_temperature",
-    "Transformer_temperature",
-    "", // GPIO13
-    "Fan_lock_status",
-    "",
-    "Fan_speed",        // Fan PWM speed
-    "SCC_charge_power", // SCC charge power
-    "Parallel_Warning", // Parallel Warning
-    "Sync_frequency",   // Sync frequency
-    "Inverter_charge_state",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-};
-*/
+
 bool PI_Serial::PIXX_Q1()
 {
     if (protocol == PI30 || protocol == PI18) // pi30 and pi18 devices react both on Q1
     {
-        String strs[30];
-        int StringCount = 0;
+        const char *const *q1List = nullptr;
+        unsigned int q1LList_length = 0;
         String commandAnswer = this->requestData("Q1");
         get.raw.q1 = commandAnswer;
 
-        if (commandAnswer == "NAK")
+        if (commandAnswer == DESCR_req_NAK || commandAnswer == DESCR_req_NOA)
+            return true;
+        if (commandAnswer == DESCR_req_ERCRC)
+            return false;
+        char bufQ1[256];
+        commandAnswer.toCharArray(bufQ1, sizeof(bufQ1));
+        char *fieldsQ1[30];
+        int StringCount = pi_split_fields(bufQ1, delimiter[0], fieldsQ1, 30);
+        if (StringCount >= (int)Q1_108_length)
         {
+            q1List = Q1_108;
+            q1LList_length = Q1_108_length;
+        }
+        else if (StringCount >= (int)Q1_22_length)
+        {
+            q1List = Q1_22;
+            q1LList_length = Q1_22_length;
+        }
+        else if (StringCount >= (int)Q1_70_length)
+        {
+            q1List = Q1_70;
+            q1LList_length = Q1_70_length;
+        }
+        else if (StringCount >= (int)Q1_47_length)
+        {
+            q1List = Q1_47;
+            q1LList_length = Q1_47_length;
+        }
+        else
+        {
+            get.raw.q1 = "Wrong Field Count(" + (String)StringCount + "), Contact Dev:" + get.raw.q1;
             return true;
         }
-        if (commandAnswer == "ERCRC")
+        for (unsigned int i = 0; i < q1LList_length && i < (unsigned int)StringCount; i++)
         {
-            return false;
+            if (fieldsQ1[i] && fieldsQ1[i][0] != '\0' && strcmp(q1List[i], "") != 0)
+                liveData[q1List[i]] = pi_parse_float2(fieldsQ1[i]);
         }
-        switch (commandAnswer.length())
-        {
-        case 47:
-            // Split the string into substrings
-            while (commandAnswer.length() > 0)
-            {
-                // int index = commandAnswer.indexOf(delimiter);
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-            for (unsigned int i = 0; i < sizeof Q1_47 / sizeof Q1_47[0]; i++)
-            {
-                if (!strs[i].isEmpty() && strcmp(Q1_47[i], "") != 0)
-                    liveData[Q1_47[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-            break;
-        case 70:
-            // Split the string into substrings
-            while (commandAnswer.length() > 0)
-            {
-                // int index = commandAnswer.indexOf(delimiter);
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-            for (unsigned int i = 0; i < sizeof Q1_70 / sizeof Q1_70[0]; i++)
-            {
-                if (!strs[i].isEmpty() && strcmp(Q1_70[i], "") != 0)
-                    liveData[Q1_70[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-            break;
-        case 87:
-            // Split the string into substrings
-            while (commandAnswer.length() > 0)
-            {
-                // int index = commandAnswer.indexOf(delimiter);
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-            for (unsigned int i = 0; i < sizeof Q1_87 / sizeof Q1_87[0]; i++)
-            {
-                if (!strs[i].isEmpty() && strcmp(Q1_87[i], "") != 0)
-                    liveData[Q1_87[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-            break;
-        case 105:
-        case 108:
-            // Split the string into substrings
-            while (commandAnswer.length() > 0)
-            {
-                // int index = commandAnswer.indexOf(delimiter);
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-            for (unsigned int i = 0; i < sizeof Q1_108 / sizeof Q1_108[0]; i++)
-            {
-                if (!strs[i].isEmpty() && strcmp(Q1_108[i], "") != 0)
-                    liveData[Q1_108[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-            break;
 
-        default:
-            get.raw.q1 = "Wrong Length(" + (String)get.raw.q1.length() + "), Contact Dev:" + get.raw.q1;
-            break;
-        }
-        if (liveData["Inverter_charge_state"].is<JsonVariant>())
+        if (liveData[DESCR_Inverter_Charge_State].is<JsonVariant>())
         {
-            switch ((int)liveData["Inverter_charge_state"].as<unsigned int>())
+            switch ((int)liveData[DESCR_Inverter_Charge_State].as<unsigned int>())
             {
             default:
-                // liveData["Inverter_charge_state"] = "no data";
+                // liveData["Inverter_Charge_State"] = "no data";
                 break;
             case 10:
-                liveData["Inverter_charge_state"] = "No charging";
+                liveData[DESCR_Inverter_Charge_State] = DESCR_No_Charging;
                 break;
             case 11:
-                liveData["Inverter_charge_state"] = "Bulk stage";
+                liveData[DESCR_Inverter_Charge_State] = DESCR_Bulk_Stage;
                 break;
             case 12:
-                liveData["Inverter_charge_state"] = "Absorb";
+                liveData[DESCR_Inverter_Charge_State] = DESCR_Absorb;
                 break;
             case 13:
-                liveData["Inverter_charge_state"] = "Float";
+                liveData[DESCR_Inverter_Charge_State] = DESCR_Float;
                 break;
             }
         }
         return true;
-        /* if (commandAnswerLength == 47 || commandAnswerLength == 105)
-        {
-            String strs[30];
-            // Split the string into substrings
-            int StringCount = 0;
-            while (commandAnswer.length() > 0)
-            {
-                // int index = commandAnswer.indexOf(delimiter);
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-
-            for (unsigned int i = 0; i < sizeof Q1_47 / sizeof Q1_47[0]; i++)
-            {
-                if (!strs[i].isEmpty() && strcmp(Q1_47[i], "") != 0)
-                    liveData[Q1_47[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-        }
-        if (commandAnswerLength == 70)
-        {
-            String strs[30];
-            // Split the string into substrings
-            int StringCount = 0;
-            while (commandAnswer.length() > 0)
-            {
-                // int index = commandAnswer.indexOf(delimiter);
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-
-            for (unsigned int i = 0; i < sizeof Q1_70 / sizeof Q1_70[0]; i++)
-            {
-                if (!strs[i].isEmpty() && strcmp(Q1_70[i], "") != 0)
-                    liveData[Q1_70[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-        }
-
-        if (liveData["Inverter_charge_state"].is<JsonVariant>())
-        {
-            switch ((int)liveData["Inverter_charge_state"].as<unsigned int>())
-            {
-            default:
-                // liveData["Inverter_charge_state"] = "no data";
-                break;
-            case 10:
-                liveData["Inverter_charge_state"] = "No charging";
-                break;
-            case 11:
-                liveData["Inverter_charge_state"] = "Bulk stage";
-                break;
-            case 12:
-                liveData["Inverter_charge_state"] = "Absorb";
-                break;
-            case 13:
-                liveData["Inverter_charge_state"] = "Float";
-                break;
-            }
-        }
-
-        return true;
-    }
-    else if (protocol == PI18)
-    {
-        String commandAnswer = this->requestData("Q1");
-        get.raw.q1 = commandAnswer;
-        byte commandAnswerLength = commandAnswer.length();
-        if (commandAnswer == "NAK")
-        {
-            return true;
-        }
-        if (commandAnswer == "ERCRC")
-        {
-            return false;
-        }
-        if (commandAnswerLength >= 47 && commandAnswerLength <= 105)
-        // if (commandAnswerLength == 47 || commandAnswerLength == 105)
-        {
-            String strs[30];
-            // Split the string into substrings
-            int StringCount = 0;
-            while (commandAnswer.length() > 0)
-            {
-                // int index = commandAnswer.indexOf(delimiter);
-                int index = commandAnswer.indexOf(' ');
-                if (index == -1) // No space found
-                {
-                    strs[StringCount++] = commandAnswer;
-                    break;
-                }
-                else
-                {
-                    strs[StringCount++] = commandAnswer.substring(0, index);
-                    commandAnswer = commandAnswer.substring(index + 1);
-                }
-            }
-
-            for (unsigned int i = 0; i < sizeof Q1_108 / sizeof Q1_108[0]; i++)
-            {
-                if (!strs[i].isEmpty() && strcmp(Q1_108[i], "") != 0)
-                    liveData[Q1_108[i]] = (int)(strs[i].toFloat() * 100 + 0.5) / 100.0;
-            }
-
-            if (liveData["Inverter_charge_state"].is<JsonVariant>())
-            {
-                switch ((int)liveData["Inverter_charge_state"].as<unsigned int>())
-                {
-                default:
-                    // liveData["Inverter_charge_state"] = "no data";
-                    break;
-                case 10:
-                    liveData["Inverter_charge_state"] = "No charging";
-                    break;
-                case 11:
-                    liveData["Inverter_charge_state"] = "Bulk stage";
-                    break;
-                case 12:
-                    liveData["Inverter_charge_state"] = "Absorb";
-                    break;
-                case 13:
-                    liveData["Inverter_charge_state"] = "Float";
-                    break;
-                }
-            }
-        }
-        return true;
-        }*/
     }
     else if (protocol == NoD)
     {

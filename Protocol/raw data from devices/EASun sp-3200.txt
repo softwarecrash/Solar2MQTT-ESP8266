@@ -1,0 +1,52 @@
+solarinvertor/RAW
+Q1 = 07288 00001 00 00 00 000 028 028 000 00 00 000 0030 0001 0000 00.00 10
+QPIGS = 000.0 00.0 220.1 49.9 0198 0155 006 395 26.30 000 060 0028 0000 000.0 00.00 00004 00010000 00 00 00001 010
+QPIGS2 = NAK
+QPIRI = 220.0 14.5 220.0 50.0 13.9 3200 3000 24.0 22.5 23.2 27.6 27.0 2 40 060 0 0 2 6 01 0 0 27.5 0 1
+QET = NAK
+QPI = PI30
+QMOD = B
+QALL = NAK
+QMN = NAK
+QPIWS = 00000100000000000000000000000000
+QFLAG = EazDbjkuvxy
+
+
+Web Console
+
+[WebSerial] Connecting...
+[WebSerial] Connected...
+[C: QPIGS2][CR:    0][CC:    0][L:   3]
+
+[C:  QMOD][CR: E7C9][CC: E7C9][L:   1]
+
+[C:    Q1][CR: A25E][CC: A25E][L:  70]
+
+[C:   QET][CR:    0][CC:    0][L:   3]
+
+[C: QPIWS][CR: FE82][CC: FE82][L:  32]
+
+[C: QPIRI][CR: AA94][CC: AA94][L:  94]
+
+ProzessData P:2 C:1
+
+Data sent to MQTT
+
+
+[C:  QALL][CR:    0][CC:    0][L:   3]
+
+[C: QPIGS][CR: 3AB4][CC: 3AB4][L: 106]
+
+[C: QPIGS2][CR:    0][CC:    0][L:   3]
+
+[C:  QMOD][CR: E7C9][CC: E7C9][L:   1]
+
+[C:    Q1][CR: A25E][CC: A25E][L:  70]
+
+[C:   QET][CR:    0][CC:    0][L:   3]
+
+[C: QPIWS][CR: FE82][CC: FE82][L:  32]
+
+[C: QPIRI][CR: AA94][CC: AA94][L:  94]
+
+ProzessData P:2 C:1

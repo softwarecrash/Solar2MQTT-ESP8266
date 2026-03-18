@@ -5,27 +5,48 @@ bool PI_Serial::PIXX_QFLAG()
         String commandAnswer = this->requestData("QFLAG");
         get.raw.qflag = commandAnswer;
         byte commandAnswerLength = commandAnswer.length();
-        if (commandAnswer == "NAK")
+        if (commandAnswer == DESCR_req_NAK || commandAnswer == DESCR_req_NOA)
         {
             return true;
         }
-        if (commandAnswer == "ERCRC")
+        if (commandAnswer == DESCR_req_ERCRC)
         {
             return false;
         }
         if (commandAnswerLength == 11)
         {
-            staticData["Buzzer_Enabled"] = checkQFLAG(commandAnswer, 'a');
+            staticData[DESCR_Buzzer_Enabled] = checkQFLAG(commandAnswer, 'a');
+            staticData[DESCR_Overload_Bypass_Enabled] = checkQFLAG(commandAnswer, 'b');
+            staticData[DESCR_Power_Saving_Enabled] = checkQFLAG(commandAnswer, 'j');
+            staticData[DESCR_LCD_Reset_To_Default_Enabled] = checkQFLAG(commandAnswer, 'k');
+            staticData[DESCR_Overload_Restart_Enabled] = checkQFLAG(commandAnswer, 'u');
+            staticData[DESCR_Over_Temperature_Restart_Enabled] = checkQFLAG(commandAnswer, 'v');
+            staticData[DESCR_LCD_Backlight_Enabled] = checkQFLAG(commandAnswer, 'x');
+            staticData[DESCR_Primary_Source_Interrupt_Alarm_Enabled] = checkQFLAG(commandAnswer, 'y');
+            staticData[DESCR_Record_Fault_Code_Enabled] = checkQFLAG(commandAnswer, 'z');
+            
+        } else if(commandAnswerLength == 14){
+            //https://github.com/softwarecrash/Solar2MQTT/issues/181
+            /*
+            l (Data_Log_Pop_Up)???
+            g
+            d
+            */
+            staticData[DESCR_Buzzer_Enabled] = checkQFLAG(commandAnswer, 'a');
+            staticData[DESCR_Overload_Bypass_Enabled] = checkQFLAG(commandAnswer, 'b');
+            //staticData[DESCR_unknown] = checkQFLAG(commandAnswer, 'd');
+            //staticData[DESCR_unknown] = checkQFLAG(commandAnswer, 'g');
+            staticData[DESCR_Power_Saving_Enabled] = checkQFLAG(commandAnswer, 'j');
+            staticData[DESCR_LCD_Reset_To_Default_Enabled] = checkQFLAG(commandAnswer, 'k');
+            staticData[DESCR_Data_Log_Pop_Up] = checkQFLAG(commandAnswer, 'l');
+            staticData[DESCR_Overload_Restart_Enabled] = checkQFLAG(commandAnswer, 'u');
+            staticData[DESCR_Over_Temperature_Restart_Enabled] = checkQFLAG(commandAnswer, 'v');
+            staticData[DESCR_LCD_Backlight_Enabled] = checkQFLAG(commandAnswer, 'x');
+            staticData[DESCR_Primary_Source_Interrupt_Alarm_Enabled] = checkQFLAG(commandAnswer, 'y');
+            staticData[DESCR_Record_Fault_Code_Enabled] = checkQFLAG(commandAnswer, 'z');
 
-            staticData["Buzzer_Enabled"] = checkQFLAG(commandAnswer, 'a');
-            staticData["Overload_bypass_Enabled"] = checkQFLAG(commandAnswer, 'b');
-            staticData["Power_saving_Enabled"] = checkQFLAG(commandAnswer, 'j');
-            staticData["LCD_reset_to_default_Enabled"] = checkQFLAG(commandAnswer, 'k');
-            staticData["Overload_restart_Enabled"] = checkQFLAG(commandAnswer, 'u');
-            staticData["Over_temperature_restart_Enabled"] = checkQFLAG(commandAnswer, 'v');
-            staticData["LCD_backlight_Enabled"] = checkQFLAG(commandAnswer, 'x');
-            staticData["Primary_source_interrupt_alarm_Enabled"] = checkQFLAG(commandAnswer, 'y');
-            staticData["Record_fault_code_Enabled"] = checkQFLAG(commandAnswer, 'z');
+        } else {
+            get.raw.qflag = "Wrong Length(" + (String)get.raw.qflag.length() + "), Contact Dev:" +get.raw.qflag;
         }
         return true;
     }
@@ -34,11 +55,11 @@ bool PI_Serial::PIXX_QFLAG()
         String commandAnswer = this->requestData("^P007FLAG");
         get.raw.qflag = commandAnswer;
         byte commandAnswerLength = commandAnswer.length();
-        if (commandAnswer == "NAK")
+        if (commandAnswer == DESCR_req_NAK || commandAnswer == DESCR_req_NOA)
         {
             return true;
         }
-        if (commandAnswer == "ERCRC")
+        if (commandAnswer == DESCR_req_ERCRC)
         {
             return false;
         }
@@ -46,14 +67,14 @@ bool PI_Serial::PIXX_QFLAG()
         //QFLAG 1,1,0,0,0,1,1,1,0
         if (commandAnswerLength == 17)
         {
-            staticData["Buzzer_Enabled"] = ((String)commandAnswer.charAt(0) == "1") ? true : false;
-            staticData["Overload_bypass_Enabled"] = ((String)(commandAnswer.charAt(2)) == "1") ? true : false;
-            staticData["LCD_reset_to_default_Enabled"] = ((String)(commandAnswer.charAt(4)) == "1") ? true : false;
-            staticData["Overload_restart_Enabled"] = ((String)(commandAnswer.charAt(6)) == "1") ? true : false;
-            staticData["Over_temperature_restart_Enabled"] = ((String)(commandAnswer.charAt(8)) == "1") ? true : false;
-            staticData["LCD_backlight_Enabled"] = ((String)(commandAnswer.charAt(10)) == "1") ? true : false;
-            staticData["Primary_source_interrupt_alarm_Enabled"] = ((String)(commandAnswer.charAt(12)) == "1") ? true : false;
-            staticData["Record_fault_code_Enabled"] = ((String)(commandAnswer.charAt(14)) == "1") ? true : false;
+            staticData[DESCR_Buzzer_Enabled] = ((String)commandAnswer.charAt(0) == "1") ? true : false;
+            staticData[DESCR_Overload_Bypass_Enabled] = ((String)(commandAnswer.charAt(2)) == "1") ? true : false;
+            staticData[DESCR_LCD_Reset_To_Default_Enabled] = ((String)(commandAnswer.charAt(4)) == "1") ? true : false;
+            staticData[DESCR_Overload_Restart_Enabled] = ((String)(commandAnswer.charAt(6)) == "1") ? true : false;
+            staticData[DESCR_Over_Temperature_Restart_Enabled] = ((String)(commandAnswer.charAt(8)) == "1") ? true : false;
+            staticData[DESCR_LCD_Backlight_Enabled] = ((String)(commandAnswer.charAt(10)) == "1") ? true : false;
+            staticData[DESCR_Primary_Source_Interrupt_Alarm_Enabled] = ((String)(commandAnswer.charAt(12)) == "1") ? true : false;
+            staticData[DESCR_Record_Fault_Code_Enabled] = ((String)(commandAnswer.charAt(14)) == "1") ? true : false;
         
         } else {
             get.raw.qflag = "Wrong Length(" + (String)get.raw.qflag.length() + "), Contact Dev:" +get.raw.qflag;

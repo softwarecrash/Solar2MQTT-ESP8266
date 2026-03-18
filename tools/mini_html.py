@@ -4,17 +4,26 @@ import glob
 from pathlib import Path
 import sys
 import pip
+import subprocess
+import pkg_resources
 
-def install(package):
-    if hasattr(pip, 'main'):
-        pip.main(['install', package])
-    else:
-        pip._internal.main(['install', package])
+def ensure_module_version(package_name, required_version):
+    try:
+        installed_version = pkg_resources.get_distribution(package_name).version
+        if installed_version == required_version:
+            print(f"{package_name} {required_version} is already installed.")
+            return
+        else:
+            print(f"{package_name} version {installed_version} found – replacing with {required_version}.")
+    except pkg_resources.DistributionNotFound:
+        print(f"{package_name} is not installed – installing version {required_version}.")
 
-try:
-    import minify_html
-except ImportError:
-    install('minify_html')
+    # Install the required version (will upgrade or downgrade as needed)
+    subprocess.check_call(['pip', 'install', '--upgrade', f'{package_name}=={required_version}'])
+
+
+ensure_module_version("minify_html", "0.15.0")
+import minify_html
 
 filePath = 'src/webpages/'
 try:
