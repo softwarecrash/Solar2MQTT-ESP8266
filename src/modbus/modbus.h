@@ -35,11 +35,6 @@ public:
     void loop();
 
     /**
-     * @brief Send custom command to the device
-     */
-    bool sendCommand(String command);
-
-    /**
      * @brief callback function
      *
      */

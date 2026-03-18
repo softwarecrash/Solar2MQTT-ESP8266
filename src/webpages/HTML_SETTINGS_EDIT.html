@@ -2,7 +2,7 @@
 <figure class="text-center">
     <h1>Edit Configuration</h1>
 </figure>
-<form method="POST" action="/settingssave" enctype="multipart/form-data">
+<form method="POST" action="/settingssave">
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="devicenamedesc">Device Name</span>
         <input type="text" class="form-control" aria-describedby="devicenamedesc" id="devicename" name="post_deviceName"
@@ -40,7 +40,7 @@
     </div>
     <div class="input-group mb-2">
         <span class="input-group-text w-50" id="mqtttriggerdesc">MQTT Data Trigger Path</span>
-        <input type="text" class="form-control" aria-describedby="mqtttrigerdesc" id="mqtttrigger"
+        <input type="text" class="form-control" aria-describedby="mqtttriggerdesc" id="mqtttrigger"
             name="post_mqtttrigger" value="" onkeyup="this.value=this.value.replace(/\s+/g,'_');">
     </div>
     <div class="input-group mb-2">
@@ -58,9 +58,9 @@
         </div>
     </div>
     <div class="input-group mb-2">
-        <span class="input-group-text w-50" id="webuicolormode">WebUI Dark Mode</span>
+        <span class="input-group-text w-50" id="webuicolormodedesc">WebUI Dark Mode</span>
         <div class="form-switch form-control" style="width:50%; text-align: center;">
-            <input type="checkbox" class="form-check-input form control" aria-describedby="webuicolormode" role="switch"
+            <input type="checkbox" class="form-check-input form control" aria-describedby="webuicolormodedesc" role="switch"
                 id="webuicolormode" name="post_webuicolormode" value="true">
         </div>
     </div>

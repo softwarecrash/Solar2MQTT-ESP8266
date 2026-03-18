@@ -88,7 +88,8 @@ void MODBUS::callback(std::function<void()> func)
 String MODBUS::requestData(String command)
 {
     requestStaticData = true;
-    return "";
+    writeLog("Custom Modbus command unsupported: %s", command.c_str());
+    return "UNSUPPORTED";
 } 
 
 //----------------------------------------------------------------------

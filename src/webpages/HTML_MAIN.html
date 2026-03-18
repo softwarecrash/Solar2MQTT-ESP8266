@@ -84,117 +84,133 @@
 
 
 <script>
+    var overviewPollTimer = null;
+    var OVERVIEW_POLL_MS = 3000;
+
     $(document).ready(function () {
         loadMeta();
-        setTimeout(initWebSocket, 500);
+        updateOverview();
+        startOverviewPolling();
     });
-    var wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    var gateway = `${wsProto}://${window.location.host}/ws`;
-    var websocket;
-    var wsReconnectTimer;
-    var ctx;
-    var cellChart;
-    var createBarChart = true;
-    var alertListArr = [];
-    var alertListitem = 0;
-    var kickRefresh = true;
+    window.addEventListener('pageshow', function () {
+        startOverviewPolling();
+        updateOverview();
+    });
+    window.addEventListener('pagehide', stopOverviewPolling);
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            stopOverviewPolling();
+        } else {
+            startOverviewPolling();
+            updateOverview();
+        }
+    });
+
     var dataFields = document.querySelectorAll('.dR');
+    var overviewRequestRunning = false;
 
-    function initWebSocket() {
-        //console.log('Trying to open a WebSocket connection...');
-        if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
+    function setFieldValue(id, value, unit, round) {
+        var element = document.getElementById(id);
+        if (!element) {
+            return false;
+        }
+        if (value === null || typeof value === 'undefined' || value === '' || Number.isNaN(value)) {
+            return false;
+        }
+        var shownValue = round ? Math.round(Number(value)) : value;
+        if (Number.isNaN(shownValue)) {
+            return false;
+        }
+        element.innerHTML = shownValue + unit;
+        return true;
+    }
+
+    function renderOverview(data) {
+        if (!Array.isArray(data) || data.length < 18) {
             return;
         }
-        websocket = new WebSocket(gateway);
-        websocket.onopen = onOpen;
-        websocket.onclose = onClose;
-        websocket.onerror = onError;
-        websocket.onmessage = onMessage;
-    }
-    function onOpen(event) {
-        console.log('Connection opened');
-    }
-    function onClose(event) {
-        //document.getElementById("status").innerHTML = 'WS Closed';
-        console.log('Connection closed');
-        scheduleReconnect();
-    }
-    function onError(event) {
-        //document.getElementById("status").innerHTML = 'WS Lost';
-        console.log('Connection lost');
-        try {
-            websocket.close();
-        } catch (e) {
-        }
-        scheduleReconnect();
-    }
-    function scheduleReconnect() {
-        if (wsReconnectTimer) {
-            return;
-        }
-        wsReconnectTimer = setTimeout(() => {
-            wsReconnectTimer = null;
-            initWebSocket();
-        }, 3000);
-    }
-    function onMessage(event) {
-        var data = JSON.parse(event.data);
-        setWiFiSignal(data.Wifi_RSSI);
+
+        setWiFiSignal(data[0]);
         const mappings = [
-            ["packSOC", "Battery_Percent", "%"],
-            ["pv_volt", "PV_Input_Voltage", "V"],
-            ["pv_current", "PV_Input_Current", "A"],
-            ["pv_power", "PV_Charging_Power", "W", true],  // 'true' indicates rounding
-            ["pv2_volt", "PV2_Input_Voltage", "V"],
-            ["pv2_current", "PV2_Input_Current", "A"],
-            ["pv2_power", "PV2_Charging_Power", "W", true],
-            ["grid_volt", "AC_in_Voltage", "V"],
-            ["grid_hz", "AC_in_Frequenz", "Hz"],
-            ["ac_out_volt", "AC_out_Voltage", "V"],
-            ["ac_out_hz", "AC_out_Frequenz", "Hz"],
-            ["ac_out_power", "AC_out_Watt", "W"],
-            ["ac_out_percent", "AC_out_percent", "%"],
-            ["heatsink_temp", "Inverter_Bus_Temperature", "°C"],
-            ["batt_volt", "Battery_Voltage", "V"],
-            ["batt_percent", "Battery_Percent", "%"],
-            ["batt_load", "Battery_Load", "A"],
-            ["ivmode", "Inverter_Operation_Mode", ""]
+            ["packSOC", 1, "%"],
+            ["pv_volt", 2, "V"],
+            ["pv_current", 3, "A"],
+            ["pv_power", 4, "W", true],
+            ["pv2_volt", 5, "V"],
+            ["pv2_current", 6, "A"],
+            ["pv2_power", 7, "W", true],
+            ["grid_volt", 8, "V"],
+            ["grid_hz", 9, "Hz"],
+            ["ac_out_volt", 10, "V"],
+            ["ac_out_hz", 11, "Hz"],
+            ["ac_out_power", 12, "W"],
+            ["ac_out_percent", 13, "%"],
+            ["heatsink_temp", 14, "&#176;C"],
+            ["batt_volt", 15, "V"],
+            ["batt_percent", 1, "%"],
+            ["batt_load", 16, "A"],
+            ["ivmode", 17, ""]
         ];
-        //lowercase data entries
-        data = Object.fromEntries(
-            Object.entries(data).map(([k, v]) => [k.toLowerCase(), v])
-        );
 
-        mappings.forEach(([id, dataKey, unit, round = false]) => {
-            const key = dataKey.toLowerCase();
-            const value = round ? Math.round(data[key]) : data[key];
-            document.getElementById(id).innerHTML = value + unit;
+        mappings.forEach(([id, dataIndex, unit, round = false]) => {
+            setFieldValue(id, data[dataIndex], unit, round);
         });
 
-
-        $('#packSOC').width(data.battery_percent + '%').attr('aria-valuenow', data.battery_percent);
+        var batteryPercent = Number(data[1]);
+        if (!Number.isNaN(batteryPercent)) {
+            $('#packSOC').width(batteryPercent + '%').attr('aria-valuenow', batteryPercent).text(Math.round(batteryPercent) + '%');
+        }
 
         dataFields.forEach(dRDiv => {
             const spans = dRDiv.querySelectorAll('.dF span');
             let allUndefined = true;
             if (spans.length) {
                 spans.forEach(span => {
-                    const isInvalid = span.innerHTML.startsWith('undefined') || span.innerHTML.startsWith('NaN');
+                    const isInvalid = span.innerHTML === '' || span.innerHTML.startsWith('undefined') || span.innerHTML.startsWith('NaN') || span.innerHTML.startsWith('null');
                     span.style.display = isInvalid ? 'none' : '';
                     if (!isInvalid) allUndefined = false;
                 });
             }
             else {
-                allUndefined = dRDiv.querySelector('.dF').innerHTML.startsWith('undefined');
+                const block = dRDiv.querySelector('.dF');
+                allUndefined = !block || block.innerHTML === '' || block.innerHTML.startsWith('undefined') || block.innerHTML.startsWith('NaN') || block.innerHTML.startsWith('null');
             }
             dRDiv.style.display = allUndefined ? 'none' : '';
         });
-
     }
 
+    function updateOverview() {
+        if (overviewRequestRunning) {
+            return;
+        }
+        overviewRequestRunning = true;
+        fetch('/livejson', { cache: 'no-store' })
+            .then(function (response) { return response.json(); })
+            .then(function (data) { renderOverview(data); })
+            .catch(function () { })
+            .finally(function () { overviewRequestRunning = false; });
+    }
+
+    function startOverviewPolling() {
+        if (overviewPollTimer) {
+            return;
+        }
+        overviewPollTimer = setInterval(updateOverview, OVERVIEW_POLL_MS);
+    }
+
+    function stopOverviewPolling() {
+        if (!overviewPollTimer) {
+            return;
+        }
+        clearInterval(overviewPollTimer);
+        overviewPollTimer = null;
+    }
 
     const minRSSI = -85, maxRSSI = -60;
     function setWiFiSignal(rssi) {
+        if (typeof rssi === 'undefined' || rssi === null) {
+            return;
+        }
         const lv = ['level1', 'level2', 'level3', 'level4', 'level5'],
             c = ['red', 'orange', 'gold', 'yellowgreen', 'green'],
             p = Math.max(0, Math.min(100, Math.round((rssi - minRSSI) * 100 / (maxRSSI - minRSSI)))),
@@ -214,4 +230,3 @@
         });
     }
 </script>
-

@@ -10,18 +10,24 @@ static constexpr size_t MQTT_TOPIC_LEN = 256;
 static constexpr size_t MQTT_TRIGGER_LEN = 256;
 static constexpr size_t HTTP_USER_LEN = 256;
 static constexpr size_t HTTP_PASS_LEN = 256;
-static constexpr size_t EEPROM_SIZE = 4096;
+static constexpr size_t LEGACY_EEPROM_SIZE = 4096;
+static constexpr size_t SETTINGS_STORAGE_SIZE = 2048;
 static constexpr size_t SETTINGS_MAGIC_OFFSET = 0;
-static constexpr size_t SETTINGS_LEN_OFFSET = 4;
-static constexpr size_t SETTINGS_DATA_OFFSET = 6;
-static constexpr uint32_t SETTINGS_MAGIC = 0x53324D51; // "S2MQ"
+static constexpr size_t SETTINGS_VERSION_OFFSET = 4;
+static constexpr size_t SETTINGS_SIZE_OFFSET = 6;
+static constexpr size_t SETTINGS_DATA_OFFSET = 8;
+static constexpr size_t LEGACY_SETTINGS_LEN_OFFSET = 4;
+static constexpr size_t LEGACY_SETTINGS_DATA_OFFSET = 6;
+static constexpr uint32_t SETTINGS_MAGIC = 0x53324D42;
+static constexpr uint32_t LEGACY_SETTINGS_MAGIC = 0x53324D51; // "S2MQ"
+static constexpr uint16_t SETTINGS_VERSION = 1;
 static constexpr unsigned int MQTT_PORT_DEFAULT = 1883;
 static constexpr unsigned int MQTT_PORT_MIN = 0;
 static constexpr unsigned int MQTT_PORT_MAX = 65535;
 static constexpr unsigned int MQTT_REFRESH_DEFAULT = 30;
 static constexpr unsigned int MQTT_REFRESH_MIN = 1;
 static constexpr unsigned int MQTT_REFRESH_MAX = 65535;
-// Settings: Stores persistent settings, loads and saves JSON in EEPROM
+// Settings: Stores persistent settings in a compact binary EEPROM format.
 
 class Settings
 {
@@ -42,13 +48,19 @@ public:
     char httpPass[HTTP_PASS_LEN];          // http basic auth password
     bool haDiscovery;            // HomeAssistant Discovery switch
   } data;
+  static_assert(SETTINGS_DATA_OFFSET + sizeof(Data) <= SETTINGS_STORAGE_SIZE, "Settings storage too small");
 
   void load()
   {
     data = {}; // clear before load data
     applyDefaults();
+    if (readBinaryFromEeprom())
+    {
+      return;
+    }
+
     String json;
-    if (!readJsonFromEeprom(json))
+    if (!readLegacyJsonFromEeprom(json))
     {
       save();
       return;
@@ -61,49 +73,27 @@ public:
       return;
     }
 
-    bool updated = false;
-    updated |= !applyString(doc["deviceName"], data.deviceName, sizeof(data.deviceName));
-    updated |= !applyString(doc["mqttServer"], data.mqttServer, sizeof(data.mqttServer));
-    updated |= !applyString(doc["mqttUser"], data.mqttUser, sizeof(data.mqttUser));
-    updated |= !applyString(doc["mqttPassword"], data.mqttPassword, sizeof(data.mqttPassword));
-    updated |= !applyString(doc["mqttTopic"], data.mqttTopic, sizeof(data.mqttTopic));
-    updated |= !applyString(doc["mqttTriggerPath"], data.mqttTriggerPath, sizeof(data.mqttTriggerPath));
-    updated |= !applyString(doc["httpUser"], data.httpUser, sizeof(data.httpUser));
-    updated |= !applyString(doc["httpPass"], data.httpPass, sizeof(data.httpPass));
-
-    updated |= !applyUInt(doc["mqttPort"], data.mqttPort, MQTT_PORT_MIN, MQTT_PORT_MAX);
-    updated |= !applyUInt(doc["mqttRefresh"], data.mqttRefresh, MQTT_REFRESH_MIN, MQTT_REFRESH_MAX);
-    updated |= !applyBool(doc["mqttJson"], data.mqttJson);
-    updated |= !applyBool(doc["webUIdarkmode"], data.webUIdarkmode);
-    updated |= !applyBool(doc["haDiscovery"], data.haDiscovery);
-
-    if (updated)
-    {
-      save();
-    }
+    applyString(doc["deviceName"], data.deviceName, sizeof(data.deviceName));
+    applyString(doc["mqttServer"], data.mqttServer, sizeof(data.mqttServer));
+    applyString(doc["mqttUser"], data.mqttUser, sizeof(data.mqttUser));
+    applyString(doc["mqttPassword"], data.mqttPassword, sizeof(data.mqttPassword));
+    applyString(doc["mqttTopic"], data.mqttTopic, sizeof(data.mqttTopic));
+    applyString(doc["mqttTriggerPath"], data.mqttTriggerPath, sizeof(data.mqttTriggerPath));
+    applyString(doc["httpUser"], data.httpUser, sizeof(data.httpUser));
+    applyString(doc["httpPass"], data.httpPass, sizeof(data.httpPass));
+    applyUInt(doc["mqttPort"], data.mqttPort, MQTT_PORT_MIN, MQTT_PORT_MAX);
+    applyUInt(doc["mqttRefresh"], data.mqttRefresh, MQTT_REFRESH_MIN, MQTT_REFRESH_MAX);
+    applyBool(doc["mqttJson"], data.mqttJson);
+    applyBool(doc["webUIdarkmode"], data.webUIdarkmode);
+    applyBool(doc["haDiscovery"], data.haDiscovery);
+    save();
   }
 
   void save()
   {
     applyBounds();
-    JsonDocument doc;
-    doc["deviceName"] = data.deviceName;
-    doc["mqttServer"] = data.mqttServer;
-    doc["mqttUser"] = data.mqttUser;
-    doc["mqttPassword"] = data.mqttPassword;
-    doc["mqttTopic"] = data.mqttTopic;
-    doc["mqttTriggerPath"] = data.mqttTriggerPath;
-    doc["mqttPort"] = data.mqttPort;
-    doc["mqttRefresh"] = data.mqttRefresh;
-    doc["mqttJson"] = data.mqttJson;
-    doc["webUIdarkmode"] = data.webUIdarkmode;
-    doc["httpUser"] = data.httpUser;
-    doc["httpPass"] = data.httpPass;
-    doc["haDiscovery"] = data.haDiscovery;
-
-    String json;
-    serializeJson(doc, json);
-    writeJsonToEeprom(json);
+    ensureStringTermination();
+    writeBinaryToEeprom();
   }
 
   void reset()
@@ -114,60 +104,85 @@ public:
   }
 
 private:
-  bool readJsonFromEeprom(String &jsonOut)
+  bool readBinaryFromEeprom()
   {
-    EEPROM.begin(EEPROM_SIZE);
+    EEPROM.begin(SETTINGS_STORAGE_SIZE);
+
     uint32_t magic = 0;
-    for (size_t i = 0; i < sizeof(magic); i++)
-    {
-      magic |= ((uint32_t)EEPROM.read(SETTINGS_MAGIC_OFFSET + i)) << (8 * i);
-    }
+    uint16_t version = 0;
+    uint16_t storedSize = 0;
+    EEPROM.get(SETTINGS_MAGIC_OFFSET, magic);
+    EEPROM.get(SETTINGS_VERSION_OFFSET, version);
+    EEPROM.get(SETTINGS_SIZE_OFFSET, storedSize);
     if (magic != SETTINGS_MAGIC)
     {
       EEPROM.end();
       return false;
     }
-    uint16_t len = 0;
-    len |= (uint16_t)EEPROM.read(SETTINGS_LEN_OFFSET);
-    len |= (uint16_t)EEPROM.read(SETTINGS_LEN_OFFSET + 1) << 8;
-    size_t maxLen = EEPROM_SIZE - SETTINGS_DATA_OFFSET;
-    if (len == 0 || len > maxLen)
+    if (version != SETTINGS_VERSION || storedSize != sizeof(Data))
     {
       EEPROM.end();
       return false;
     }
+    EEPROM.get(SETTINGS_DATA_OFFSET, data);
+    EEPROM.end();
+    ensureStringTermination();
+    applyBounds();
+    return true;
+  }
+
+  bool readLegacyJsonFromEeprom(String &jsonOut)
+  {
+    EEPROM.begin(LEGACY_SETTINGS_DATA_OFFSET);
+
+    uint32_t magic = 0;
+    EEPROM.get(SETTINGS_MAGIC_OFFSET, magic);
+    if (magic != LEGACY_SETTINGS_MAGIC)
+    {
+      EEPROM.end();
+      return false;
+    }
+
+    uint16_t len = 0;
+    len |= (uint16_t)EEPROM.read(LEGACY_SETTINGS_LEN_OFFSET);
+    len |= (uint16_t)EEPROM.read(LEGACY_SETTINGS_LEN_OFFSET + 1) << 8;
+    EEPROM.end();
+
+    size_t maxLen = LEGACY_EEPROM_SIZE - LEGACY_SETTINGS_DATA_OFFSET;
+    if (len == 0 || len > maxLen)
+    {
+      return false;
+    }
+    EEPROM.begin(LEGACY_SETTINGS_DATA_OFFSET + len);
+
     jsonOut = "";
-    jsonOut.reserve(len);
+    if (!jsonOut.reserve(len))
+    {
+      EEPROM.end();
+      return false;
+    }
     for (uint16_t i = 0; i < len; i++)
     {
-      jsonOut += (char)EEPROM.read(SETTINGS_DATA_OFFSET + i);
+      jsonOut += (char)EEPROM.read(LEGACY_SETTINGS_DATA_OFFSET + i);
     }
     EEPROM.end();
     return true;
   }
 
-  bool writeJsonToEeprom(const String &json)
+  bool writeBinaryToEeprom()
   {
-    size_t maxLen = EEPROM_SIZE - SETTINGS_DATA_OFFSET;
-    if (json.length() == 0 || json.length() > maxLen)
-    {
-      return false;
-    }
-    EEPROM.begin(EEPROM_SIZE);
-    for (size_t i = 0; i < 4; i++)
-    {
-      EEPROM.write(SETTINGS_MAGIC_OFFSET + i, (uint8_t)((SETTINGS_MAGIC >> (8 * i)) & 0xFF));
-    }
-    uint16_t len = (uint16_t)json.length();
-    EEPROM.write(SETTINGS_LEN_OFFSET, (uint8_t)(len & 0xFF));
-    EEPROM.write(SETTINGS_LEN_OFFSET + 1, (uint8_t)((len >> 8) & 0xFF));
-    for (uint16_t i = 0; i < len; i++)
-    {
-      EEPROM.write(SETTINGS_DATA_OFFSET + i, (uint8_t)json[i]);
-    }
-    EEPROM.commit();
+    EEPROM.begin(SETTINGS_STORAGE_SIZE);
+
+    uint32_t magic = SETTINGS_MAGIC;
+    uint16_t version = SETTINGS_VERSION;
+    uint16_t storedSize = sizeof(Data);
+    EEPROM.put(SETTINGS_MAGIC_OFFSET, magic);
+    EEPROM.put(SETTINGS_VERSION_OFFSET, version);
+    EEPROM.put(SETTINGS_SIZE_OFFSET, storedSize);
+    EEPROM.put(SETTINGS_DATA_OFFSET, data);
+    bool ok = EEPROM.commit();
     EEPROM.end();
-    return true;
+    return ok;
   }
 
   static void copyString(char *dest, size_t destSize, const char *src)
@@ -252,8 +267,21 @@ private:
     data.haDiscovery = false;
   }
 
+  void ensureStringTermination()
+  {
+    data.deviceName[sizeof(data.deviceName) - 1] = '\0';
+    data.mqttServer[sizeof(data.mqttServer) - 1] = '\0';
+    data.mqttUser[sizeof(data.mqttUser) - 1] = '\0';
+    data.mqttPassword[sizeof(data.mqttPassword) - 1] = '\0';
+    data.mqttTopic[sizeof(data.mqttTopic) - 1] = '\0';
+    data.mqttTriggerPath[sizeof(data.mqttTriggerPath) - 1] = '\0';
+    data.httpUser[sizeof(data.httpUser) - 1] = '\0';
+    data.httpPass[sizeof(data.httpPass) - 1] = '\0';
+  }
+
   void applyBounds()
   {
+    ensureStringTermination();
     data.mqttPort = clampUInt(data.mqttPort, MQTT_PORT_MIN, MQTT_PORT_MAX);
     data.mqttRefresh = clampUInt(data.mqttRefresh, MQTT_REFRESH_MIN, MQTT_REFRESH_MAX);
   }

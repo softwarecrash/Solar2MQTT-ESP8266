@@ -245,12 +245,17 @@ bool PI_Serial::isBusy() const
 //----------------------------------------------------------------------
 void PI_Serial::autoDetect() // function for autodetect the inverter type
 {
-    String protocolName = "not found";
     busyCount++;
     if (abortAutoDetect || suspendSerial)
     {
         writeLog("Autodetect aborted");
         goto autodetect_done;
+    }
+    protocol = NoD;
+    if (modbus != nullptr)
+    {
+        delete modbus;
+        modbus = nullptr;
     }
     writeLog("----------------- Start Autodetect -----------------");
     for (size_t i = 0; i < 3; i++) // try 3 times to detect the inverter
@@ -301,8 +306,16 @@ void PI_Serial::autoDetect() // function for autodetect the inverter type
     if (protocol == NoD && !abortAutoDetect && !suspendSerial)
     {
         modbus = new MODBUS(this->my_serialIntf);
-        modbus->Init();
-        protocol = modbus->autoDetect();
+        if (modbus != nullptr)
+        {
+            modbus->Init();
+            protocol = modbus->autoDetect();
+            if (protocol == NoD)
+            {
+                delete modbus;
+                modbus = nullptr;
+            }
+        }
     } 
     writeLog("----------------- End Autodetect -----------------");
 autodetect_done:
@@ -394,7 +407,7 @@ String PI_Serial::requestData(String command)
         connectionCounter++;
         commandBuffer = "ERCRC";
     }
-    writeLog("[C: %6S][CR: %4X][CC: %4X][L: %3u]", (const wchar_t *)command.c_str(), crcRecive, crcCalc, commandBuffer.length());
+    writeLog("[C: %6s][CR: %4X][CC: %4X][L: %3u]", command.c_str(), crcRecive, crcCalc, commandBuffer.length());
     if (busyCount > 0)
     {
         busyCount--;
@@ -534,7 +547,7 @@ char *PI_Serial::getModeDesc(char mode) // get the char from QMOD and make reada
 
 bool PI_Serial::isModbus()
 {
-    return protocol == MODBUS_MUST || protocol == MODBUS_DEYE;
+    return protocol == MODBUS_MUST || protocol == MODBUS_DEYE || protocol == MODBUS_ANENJI;
 }
 
 bool PI_Serial::checkQFLAG(const String& flags, char symbol) {

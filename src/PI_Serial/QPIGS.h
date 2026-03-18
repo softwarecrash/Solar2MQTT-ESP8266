@@ -165,10 +165,10 @@ bool PI_Serial::PIXX_QPIGS()
       liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
       liveData[DESCR_PV_Input_Power] = (liveData[DESCR_PV_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV_Input_Current].as<unsigned short>());
     }
-    else if (StringCount >= (int)qpigs_21_length)
+    else if (StringCount >= (int)qpigs_90_length)
     {
-      qpigsList = qpigs_21;
-      qpigsList_length = qpigs_21_length;
+      qpigsList = qpigs_90;
+      qpigsList_length = qpigs_90_length;
       for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
       {
         if (fieldsQPIGS[i][0] != '\0' && strcmp(qpigsList[i], "") != 0)
@@ -179,10 +179,10 @@ bool PI_Serial::PIXX_QPIGS()
       liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
       liveData[DESCR_PV_Input_Power] = (liveData[DESCR_PV_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV_Input_Current].as<unsigned short>());
     }
-    else if (StringCount >= (int)qpigs_90_length)
+    else if (StringCount >= (int)qpigs_21_length)
     {
-      qpigsList = qpigs_90;
-      qpigsList_length = qpigs_90_length;
+      qpigsList = qpigs_21;
+      qpigsList_length = qpigs_21_length;
       for (unsigned int i = 0; i < qpigsList_length && i < (unsigned int)StringCount; i++)
       {
         if (fieldsQPIGS[i][0] != '\0' && strcmp(qpigsList[i], "") != 0)

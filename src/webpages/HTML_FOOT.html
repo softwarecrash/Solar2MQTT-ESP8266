@@ -50,7 +50,7 @@
             let x = data.tag_name.substring(1).split('.').map(e => parseInt(e));
             let y = currentVersion.split('.').map(e => parseInt(e));
             let z = "";
-            for (i = 0; i < x.length; i++) { if (x[i] === y[i]) { z += "e"; } else if (x[i] > y[i]) { z += "m"; } else { z += "l"; } }
+            for (let i = 0; i < x.length; i++) { if (x[i] === y[i]) { z += "e"; } else if (x[i] > y[i]) { z += "m"; } else { z += "l"; } }
             if (!z.match(/[l|m]/g)) {
                 return;
             } else if (z.split('e').join('')[0] == "m") {

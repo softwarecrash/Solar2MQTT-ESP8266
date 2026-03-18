@@ -1,7 +1,6 @@
 #ifndef PI_SERIAL_H
 #define PI_SERIAL_H
 #include "descriptors.h"
-#include "vector"
 #include "SoftwareSerial.h"
 #include <stdlib.h>
 #include <string.h>
@@ -179,7 +178,7 @@ private:
     
     String customCommandBuffer;
 
-    MODBUS *modbus;
+    MODBUS *modbus = nullptr;
 
     /**
      * @brief get the crc from a string

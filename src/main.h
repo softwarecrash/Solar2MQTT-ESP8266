@@ -64,12 +64,6 @@ void saveConfigCallback();
 bool prozessData();
 
 /**
- * @brief fires up the websocket and send data to the clients
- *
- */
-void notifyClients();
-
-/**
  * @brief build the topic string and return
  *
  */
@@ -86,12 +80,6 @@ bool connectMQTT();
  *
  */
 bool sendtoMQTT();
-
-/**
- * @brief send the data async to mqtt
- *
- */
-bool sendtoMQTTasync();
 
 /**
  * @brief get the basic device data
@@ -147,7 +135,7 @@ static const char ICON_battery_charging_outline[] PROGMEM = "battery-charging-ou
 static const char ICON_battery_remove_outline[] PROGMEM = "battery-remove-outline";
 static const char ICON_ev_station[] PROGMEM = "ev-station";
 static const char ICON_state_machine[] PROGMEM = "state-machine";
-static const char ICON_clock_time_eight_outline[] PROGMEM = "clock-time-eight-outli";
+static const char ICON_clock_time_eight_outline[] PROGMEM = "clock-time-eight-outline";
 static const char ICON_battery_outline[] PROGMEM = "battery-outline";
 static const char ICON_string_lights[] PROGMEM = "string-lights";
 static const char ICON_access_point[] PROGMEM = "access-point";
@@ -156,7 +144,6 @@ static const char ICON_solar_panel[] PROGMEM = "solar-panel";
 static const char ICON_priority_high[] PROGMEM = "priority-high";
 static const char ICON_earth[] PROGMEM = "earth";
 static const char ICON_alert_outline[] PROGMEM = "alert-outline";
-static const char ICON_battery_charging_outli[] PROGMEM = "battery-charging-outli";
 static const char ICON_battery_high[] PROGMEM = "battery-high";
 static const char ICON_fan[] PROGMEM = "fan";
 static const char ICON_car_turbocharger[] PROGMEM = "car-turbocharger";
@@ -242,7 +229,7 @@ static const char *const haLiveDescriptor[][4] PROGMEM{
     //{"ACDC_Power_Direction","sign-direction","",""},
     {KEY_Battery_capacity, ICON_battery_high, UNIT_percent, CLASS_battery},
     {DESCR_Battery_Charge_Current, ICON_battery_charging_high, ICON_A, ICON_current},
-    {DESCR_Battery_Discharge_Current, ICON_battery_charging_outli, ICON_A, ICON_current},
+    {DESCR_Battery_Discharge_Current, ICON_battery_charging_outline, ICON_A, ICON_current},
     {DESCR_Battery_Load, ICON_battery_charging_high, ICON_A, ICON_current},
     {DESCR_Battery_Percent, ICON_battery_charging_high, UNIT_percent, CLASS_battery},
     {DESCR_Battery_Power_Direction, ICON_battery_charging_high, "", ""},

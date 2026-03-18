@@ -5,8 +5,6 @@
 #define DESCR_req_NOA "NOA"
 #define DESCR_req_ERCRC "ERCRC"
 // QPIGS
-//#define DESCR_AC_In_Voltage "AC_In_Voltage"                                   // BBB.B
-
 #define DESCR_AC_In_Voltage "AC_In_Voltage"                                   // BBB.B
 
 #define DESCR_AC_In_Frequenz "AC_In_Frequenz"                                 // CC.C
@@ -47,7 +45,6 @@
 
 #define DESCR_Negative_battery_voltage "Negative_battery_voltage"
 #define DESCR_Output_current "Output_current"
-#define DESCR_Output_load_percent "Output_load_percent"
 #define DESCR_Output_load_percent "Output_load_percent"
 #define DESCR_Output_power "Output_power"
 
