@@ -3,10 +3,11 @@ name: Update Central Firmware Repository
 on:
   release:
     types: [published, edited]
+  workflow_dispatch:
 
 jobs:
   update-central-repo:
-    if: ${{ github.event.release.prerelease == false }}
+    if: ${{ github.event.release.prerelease == false || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -22,34 +23,33 @@ jobs:
           git clone https://all-solutions:${{ secrets.CENTRAL_REPO_TOKEN }}@github.com/all-solutions/Flash2MQTT.git Flash2MQTT
 
       - name: Download Firmware Assets
+        id: fetch-release
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const core = require('@actions/core');
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const releaseTag = context.payload.release.tag_name;
 
-            // Check if the release is a pre-release
-            if (context.payload.release.prerelease) {
-              core.setFailed('This is a pre-release. Skipping workflow.');
-              process.exit(1);
+            let release;
+            let releaseTag;
+
+            if (context.eventName === 'release') {
+              releaseTag = context.payload.release.tag_name;
+              console.log(`Using release tag from event: ${releaseTag}`);
+              release = await github.rest.repos.getReleaseByTag({ owner, repo, tag: releaseTag });
+            } else {
+              release = await github.rest.repos.getLatestRelease({ owner, repo });
+              releaseTag = release.data.tag_name;
+              console.log(`Using latest release tag: ${releaseTag}`);
             }
 
-            // Get the release by tag name
-            const release = await github.rest.repos.getReleaseByTag({
-              owner,
-              repo,
-              tag: releaseTag,
-            });
-
-            // Filter assets that end with .bin
             const assets = release.data.assets.filter(asset => asset.name.endsWith('.bin'));
 
             if (assets.length === 0) {
               core.setFailed('No .bin assets found in the release.');
+              return;
             }
 
             for (const asset of assets) {
@@ -61,11 +61,11 @@ jobs:
                   Accept: 'application/octet-stream',
                 },
               });
-
-              // Write the asset to a file
               fs.writeFileSync(asset.name, Buffer.from(download.data));
               console.log(`Downloaded ${asset.name}`);
             }
+
+            core.setOutput('tag', releaseTag);
 
       - name: List Downloaded Files
         run: ls -la
@@ -73,7 +73,9 @@ jobs:
       - name: Copy Firmware Files
         run: |
           mkdir -p Flash2MQTT/firmware/${{ github.event.repository.name }}
+          rm -f Flash2MQTT/firmware/${{ github.event.repository.name }}/*.bin
           cp *.bin Flash2MQTT/firmware/${{ github.event.repository.name }}/
+          echo "Updated at $(date -u)" > Flash2MQTT/firmware/${{ github.event.repository.name }}/last_update.txt
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -81,64 +83,39 @@ jobs:
       - name: Update variants.json and firmware_list.json
         env:
           FIRMWARE_NAME: ${{ github.event.repository.name }}
-          RELEASE_VERSION: ${{ github.event.release.tag_name }}
+          RELEASE_VERSION: ${{ steps.fetch-release.outputs.tag }}
         run: |
           cd Flash2MQTT/firmware/${FIRMWARE_NAME}
           ls *.bin > bin_files.txt
-          # Initialize variables
           total=0
           count=0
-          # Remove 'v' or 'V' prefix from version if present
           version="${RELEASE_VERSION#v}"
           version="${version#V}"
           echo "Firmware Name: $FIRMWARE_NAME"
           echo "Release Version: $version"
-          # Determine total number of desired variants
+
           echo "Determining total number of desired variants..."
           while read file; do
-            echo "Processing file: $file"
             if [[ "$file" == *"_${version}.bin" ]]; then
-              echo "File matches current release version."
               variant_part=$(echo "$file" | sed -E 's/^'"$FIRMWARE_NAME"'_//; s/_'"${version}"'\.bin$//')
               variant_name="${variant_part}"
-              echo "Extracted variant_name: $variant_name"
               if [[ "$variant_name" == "d1_mini" || "$variant_name" == "esp01_1m" ]]; then
-                echo "Variant $variant_name is desired. Incrementing total."
                 total=$((total + 1))
-              else
-                echo "Variant $variant_name is not desired."
               fi
-            else
-              echo "File does not match current release version."
             fi
           done < bin_files.txt
-          echo "Total desired variants: $total"
 
-          # Start building variants.json
           echo '[' > variants.json
-          # Process files and create variants.json
-          echo "Building variants.json..."
           while read file; do
-            echo "Processing file: $file"
             if [[ "$file" == *"_${version}.bin" ]]; then
-              echo "File matches current release version."
               variant_part=$(echo "$file" | sed -E 's/^'"$FIRMWARE_NAME"'_//; s/_'"${version}"'\.bin$//')
               variant_name="${variant_part}"
-              echo "Extracted variant_name: $variant_name"
               case "$variant_name" in
-                "d1_mini")
-                  display_name="D1 Mini"
-                  ;;
-                "esp01_1m")
-                  display_name="ESP-01"
-                  ;;
-                *)
-                  echo "Variant $variant_name is not desired. Skipping."
-                  continue
-                  ;;
+                "d1_mini") display_name="D1 Mini" ;;
+                "esp01_1m") display_name="ESP-01" ;;
+                *) continue ;;
               esac
               count=$((count + 1))
-              echo "Adding variant $display_name to variants.json."
               echo '  {' >> variants.json
               echo '    "displayName": "'"$display_name"'",' >> variants.json
               echo '    "file": "https://all-solutions.github.io/Flash2MQTT/firmware/'"$FIRMWARE_NAME"'/'"$file"'"' >> variants.json
@@ -147,34 +124,28 @@ jobs:
               else
                 echo '  }' >> variants.json
               fi
-            else
-              echo "File does not match current release version."
             fi
           done < bin_files.txt
           echo ']' >> variants.json
           rm bin_files.txt
 
-          # Update firmware_list.json
           cd ..
-          # Install jq if not already installed
-          if ! command -v jq &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y jq
-          fi
-          # Initialize firmware_list.json if it doesn't exist
           if [ ! -f firmware_list.json ]; then
             echo '[]' > firmware_list.json
           fi
-          # Update firmware_list.json
           tmpfile=$(mktemp)
           jq --arg name "$FIRMWARE_NAME" --arg version "$version" \
             'if any(.[]; .name == $name) then map(if .name == $name then .version = $version else . end) else . + [{"name": $name, "version": $version}] end' \
             firmware_list.json > "$tmpfile" && mv "$tmpfile" firmware_list.json
 
       - name: Commit and Push Changes
+        env:
+          RELEASE_VERSION: ${{ steps.fetch-release.outputs.tag }}
         run: |
           cd Flash2MQTT
           git add firmware/${{ github.event.repository.name }}
           git add firmware/firmware_list.json
-          git commit -m "Update firmware for ${{ github.event.repository.name }} to version $version"
+          git commit -m "Update firmware for ${{ github.event.repository.name }} to version $RELEASE_VERSION" || \
+            git commit --allow-empty -m "Force update for ${{ github.event.repository.name }} to version $RELEASE_VERSION (no file changes)"
           git pull --rebase origin main
           git push https://all-solutions:${{ secrets.CENTRAL_REPO_TOKEN }}@github.com/all-solutions/Flash2MQTT.git HEAD:main
