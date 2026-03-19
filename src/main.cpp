@@ -105,6 +105,34 @@ static void appendJsonVariant(Print &out, JsonVariantConst value)
   serializeJson(value, out);
 }
 
+static void copyLiveAlias(const char *targetKey, const char *sourceKey)
+{
+  JsonVariantConst value = liveData[sourceKey];
+  if (!value.isUnbound() && !value.isNull())
+  {
+    liveData[targetKey] = value;
+  }
+}
+
+static void syncLegacyLiveDataNames()
+{
+  copyLiveAlias("Battery_capacity", DESCR_Battery_Percent);
+  copyLiveAlias("Grid_voltage", DESCR_AC_In_Voltage);
+  copyLiveAlias("Grid_frequency", DESCR_AC_In_Frequenz);
+
+  JsonVariantConst chargingPower = liveData[DESCR_PV_Charging_Power];
+  if (chargingPower.isUnbound() || chargingPower.isNull())
+  {
+    copyLiveAlias(DESCR_PV_Charging_Power, DESCR_PV_Input_Power);
+  }
+
+  JsonVariantConst inputPower = liveData[DESCR_PV_Input_Power];
+  if (inputPower.isUnbound() || inputPower.isNull())
+  {
+    copyLiveAlias(DESCR_PV_Input_Power, DESCR_PV_Charging_Power);
+  }
+}
+
 void finishLoopback(bool ok, const String &message)
 {
   loopbackOk = ok;
@@ -580,39 +608,39 @@ void sendLiveJson(AsyncWebServerRequest *request)
   response->print('[');
   response->print(WiFi.RSSI());
   response->print(',');
-  appendJsonVariant(*response, liveData["Battery_Percent"]);
+  appendJsonVariant(*response, liveData[DESCR_Battery_Percent]);
   response->print(',');
-  appendJsonVariant(*response, liveData["PV_Input_Voltage"]);
+  appendJsonVariant(*response, liveData[DESCR_PV_Input_Voltage]);
   response->print(',');
-  appendJsonVariant(*response, liveData["PV_Input_Current"]);
+  appendJsonVariant(*response, liveData[DESCR_PV_Input_Current]);
   response->print(',');
-  appendJsonVariant(*response, liveData["PV_Charging_Power"]);
+  appendJsonVariant(*response, liveData[DESCR_PV_Charging_Power]);
   response->print(',');
-  appendJsonVariant(*response, liveData["PV2_Input_Voltage"]);
+  appendJsonVariant(*response, liveData[DESCR_PV2_Input_Voltage]);
   response->print(',');
-  appendJsonVariant(*response, liveData["PV2_Input_Current"]);
+  appendJsonVariant(*response, liveData[DESCR_PV2_Input_Current]);
   response->print(',');
-  appendJsonVariant(*response, liveData["PV2_Charging_Power"]);
+  appendJsonVariant(*response, liveData[DESCR_PV2_Charging_Power]);
   response->print(',');
-  appendJsonVariant(*response, liveData["AC_In_Voltage"]);
+  appendJsonVariant(*response, liveData[DESCR_AC_In_Voltage]);
   response->print(',');
-  appendJsonVariant(*response, liveData["AC_In_Frequenz"]);
+  appendJsonVariant(*response, liveData[DESCR_AC_In_Frequenz]);
   response->print(',');
-  appendJsonVariant(*response, liveData["AC_Out_Voltage"]);
+  appendJsonVariant(*response, liveData[DESCR_AC_Out_Voltage]);
   response->print(',');
-  appendJsonVariant(*response, liveData["AC_Out_Frequenz"]);
+  appendJsonVariant(*response, liveData[DESCR_AC_Out_Frequenz]);
   response->print(',');
-  appendJsonVariant(*response, liveData["AC_Out_Watt"]);
+  appendJsonVariant(*response, liveData[DESCR_AC_Out_Watt]);
   response->print(',');
-  appendJsonVariant(*response, liveData["AC_Out_Percent"]);
+  appendJsonVariant(*response, liveData[DESCR_AC_Out_Percent]);
   response->print(',');
-  appendJsonVariant(*response, liveData["Inverter_Bus_Temperature"]);
+  appendJsonVariant(*response, liveData[DESCR_Inverter_Bus_Temperature]);
   response->print(',');
-  appendJsonVariant(*response, liveData["Battery_Voltage"]);
+  appendJsonVariant(*response, liveData[DESCR_Battery_Voltage]);
   response->print(',');
-  appendJsonVariant(*response, liveData["Battery_Load"]);
+  appendJsonVariant(*response, liveData[DESCR_Battery_Load]);
   response->print(',');
-  appendJsonVariant(*response, liveData["Inverter_Operation_Mode"]);
+  appendJsonVariant(*response, liveData[DESCR_Inverter_Operation_Mode]);
   response->print(']');
   request->send(response);
 }
@@ -1060,6 +1088,7 @@ bool prozessData()
 
 void getJsonData()
 {
+  syncLegacyLiveDataNames();
   deviceJson[F("Device_name")] = settings.data.deviceName;
   deviceJson[F("ESP_VCC")] = ESP.getVcc() / 1000.0;
   deviceJson[F("Wifi_RSSI")] = WiFi.RSSI();
