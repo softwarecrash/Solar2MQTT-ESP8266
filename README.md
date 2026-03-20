@@ -1,9 +1,6 @@
 # Solar2MQTT [![GitHub release](https://img.shields.io/github/release/softwarecrash/Solar2MQTT?include_prereleases=&sort=semver&color=blue)](https://github.com/softwarecrash/Solar2MQTT/releases/latest) [![Discord](https://img.shields.io/discord/1007020337482973254?logo=discord&label=Discord)](https://discord.gg/fb2nZWDExz)
 
 
-# The ESP8266 Project variant is moved [here](https://github.com/softwarecrash/Solar2MQTT-ESP8266)
-
-
 # Features:
 - captive portal for wifi and MQTT config
 - config in webinterface
