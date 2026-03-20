@@ -6,3 +6,4 @@
 .vscode
 .firmware
 src/html.h
+src/www.h
