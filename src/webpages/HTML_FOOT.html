@@ -1,6 +1,6 @@
 
 <figure class="text-center">
-    Solar2MQTT <a id="software_version">-</a> By <a href="https://github.com/softwarecrash/Solar2MQTT"
+    Solar2MQTT <a id="software_version">-</a> By <a href="https://github.com/softwarecrash/Solar2MQTT-ESP8266"
         target="_blank">Softwarecrash</a>
     <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank"><img
             alt="Creative Commons License" style="border-width:0"
@@ -70,7 +70,7 @@
                 return;
             }
 
-            $.getJSON("https://api.github.com/repos/softwarecrash/Solar2MQTT/releases/latest", function () {
+            $.getJSON("https://api.github.com/repos/softwarecrash/Solar2MQTT-ESP8266/releases/latest", function () {
             })
                 .done(function (data) {
                     writeCache(data);

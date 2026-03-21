@@ -10,4 +10,4 @@ if env.GetProjectOption("custom_hardwareserial") == "true":
         ("isUART_HARDWARE",  env.StringifyMacro(env.GetBuildType())),
     ])
 
-env.Replace(PROGNAME="Solar2MQTT_%s_%s" % (str(env["PIOENV"]), env.GetProjectOption("custom_prog_version")))
+env.Replace(PROGNAME="Solar2MQTT-ESP8266_%s_%s" % (str(env["PIOENV"]), env.GetProjectOption("custom_prog_version")))

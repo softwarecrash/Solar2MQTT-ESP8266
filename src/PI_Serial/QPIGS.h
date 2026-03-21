@@ -178,6 +178,9 @@ bool PI_Serial::PIXX_QPIGS()
       }
       liveData[DESCR_Battery_Load] = (liveData[DESCR_Battery_Charge_Current].as<unsigned short>() - liveData[DESCR_Battery_Discharge_Current].as<unsigned short>());
       liveData[DESCR_PV_Input_Power] = (liveData[DESCR_PV_Input_Voltage].as<unsigned short>() * liveData[DESCR_PV_Input_Current].as<unsigned short>());
+      // 90-field PI30 responses do not carry a dedicated PV_Charging_Power field.
+      // Keep the legacy datapoint in sync so MQTT/WebUI don't retain an old value.
+      liveData[DESCR_PV_Charging_Power] = liveData[DESCR_PV_Input_Power];
     }
     else if (StringCount >= (int)qpigs_21_length)
     {
