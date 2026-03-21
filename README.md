@@ -1,6 +1,6 @@
 # Solar2MQTT-ESP8266 [![GitHub release](https://img.shields.io/github/release/softwarecrash/Solar2MQTT?include_prereleases=&sort=semver&color=blue)](https://github.com/softwarecrash/Solar2MQTT/releases/latest) [![Discord](https://img.shields.io/discord/1007020337482973254?logo=discord&label=Discord)](https://discord.gg/fb2nZWDExz)
 
-[HERE](https://github.com/softwarecrash/Solar2MQTT) is the ESP32 Next Generation of Solar2MQTT
+# [HERE](https://github.com/softwarecrash/Solar2MQTT) is the ESP32 Next Generation of Solar2MQTT
 
 # Features:
 - captive portal for wifi and MQTT config
