@@ -4,15 +4,15 @@
 # Features:
 - captive portal for wifi and MQTT config
 - config in webinterface
-- Full Controll with [Custom commands](https://github.com/softwarecrash/Solar2MQTT/wiki/Set-parameters)
-- get essential data over webinterface, get [all data](https://github.com/softwarecrash/Solar2MQTT/wiki/Datapoints-and-units) over MQTT
+- Full Controll with [Custom commands](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/Set-parameters)
+- get essential data over webinterface, get [all data](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/Datapoints-and-units) over MQTT
 - classic MQTT datapoints or Json string over MQTT
 - get Json over web at /livejson?
 - firmware update over webinterface
 - debug log on Wemos USB or Webserial
-- [blink codes](https://github.com/softwarecrash/Solar2MQTT/wiki/Blink-Codes) for the current state of the ESP
-- [Reset functions](https://github.com/softwarecrash/Solar2MQTT/wiki/Reset)
-- [Support Home Assistant](https://github.com/softwarecrash/Solar2MQTT/wiki/HomeAssistant-integration)
+- [blink codes](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/Blink-Codes) for the current state of the ESP
+- [Reset functions](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/Reset)
+- [Support Home Assistant](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/HomeAssistant-integration)
 - with Teapod
 
 
@@ -26,20 +26,20 @@
 - IGrid
 - Many devices from EASUN
 - and many many others based on the chinese solar inverter with a rj45 jack and usb port, primary identified by the display
-- Take a look at the [device list in the wiki](https://github.com/softwarecrash/Solar2MQTT/wiki/Confirmed-Working-Device-List)
+- Take a look at the [device list in the wiki](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/Confirmed-Working-Device-List)
 
 
 **Main screen:**
 
-![image](https://github.com/softwarecrash/Solar2MQTT/assets/17761850/de945ad5-29ad-476e-9562-a0eba1b4f2ce)
+![image](https://github.com/softwarecrash/Solar2MQTT-ESP8266/assets/17761850/de945ad5-29ad-476e-9562-a0eba1b4f2ce)
 
 **Settings:**
 
-![image](https://github.com/softwarecrash/Solar2MQTT/assets/17761850/075d1e66-3912-4a33-b7d3-a52da99c8553)
+![image](https://github.com/softwarecrash/Solar2MQTT-ESP8266/assets/17761850/075d1e66-3912-4a33-b7d3-a52da99c8553)
 
 **Config:**
 
-![image](https://github.com/softwarecrash/Solar2MQTT/assets/17761850/823093bf-8abe-4b7e-913f-7bac9420d108)
+![image](https://github.com/softwarecrash/Solar2MQTT-ESP8266/assets/17761850/823093bf-8abe-4b7e-913f-7bac9420d108)
 
 
 
@@ -47,7 +47,7 @@
 
 # How to use:
 - flash your ESP8266 (recommended Wemos D1 Mini) with our [Flash2MQTT-Tool](https://all-solutions.github.io/Flash2MQTT/?get=Solar2MQTT) or with [Tasmotizer](https://github.com/tasmota/tasmotizer/releases)
-- connect the ESP like the [wiring diagram](https://github.com/softwarecrash/Solar2MQTT/wiki/Wiring-Diagram)
+- connect the ESP like the [wiring diagram](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/Wiring-Diagram)
 - search for the wifi ap "Solar2MQTT-AP" and connect to it
 - surf to 192.168.4.1 and set up your wifi and optional MQTT
 - that's it :)
