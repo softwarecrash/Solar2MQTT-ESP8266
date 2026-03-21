@@ -65,8 +65,17 @@ bool loopbackPrevWorker = true;
 unsigned long loopbackWaitStart = 0;
 String loopbackMessage;
 const uint32_t HA_MIN_HEAP = 12000;
+const uint32_t HA_TRIGGER_MIN_HEAP = 6000;
 const uint32_t HA_MIN_INTERVAL_MS = 60000;
+const uint32_t HA_TRIGGER_RETRY_MS = 5000;
+const uint32_t HA_STEP_INTERVAL_MS = 50;
 unsigned long haDiscLastAttempt = 0;
+struct HaDiscoveryState
+{
+  bool active = false;
+  uint8_t section = 0;
+  size_t index = 0;
+} haDiscoveryState;
 struct DebugDownloadState
 {
   uint8_t phase = 0;
@@ -114,22 +123,37 @@ static void copyLiveAlias(const char *targetKey, const char *sourceKey)
   }
 }
 
+static bool hasLiveValue(const char *key)
+{
+  JsonVariantConst value = liveData[key];
+  return !value.isUnbound() && !value.isNull();
+}
+
 static void syncLegacyLiveDataNames()
 {
   copyLiveAlias("Battery_capacity", DESCR_Battery_Percent);
   copyLiveAlias("Grid_voltage", DESCR_AC_In_Voltage);
   copyLiveAlias("Grid_frequency", DESCR_AC_In_Frequenz);
 
-  JsonVariantConst chargingPower = liveData[DESCR_PV_Charging_Power];
-  if (chargingPower.isUnbound() || chargingPower.isNull())
+  if (mppClient.protocol == MODBUS_DEYE || mppClient.protocol == MODBUS_ANENJI)
   {
     copyLiveAlias(DESCR_PV_Charging_Power, DESCR_PV_Input_Power);
   }
-
-  JsonVariantConst inputPower = liveData[DESCR_PV_Input_Power];
-  if (inputPower.isUnbound() || inputPower.isNull())
+  else if (mppClient.protocol == MODBUS_MUST)
   {
     copyLiveAlias(DESCR_PV_Input_Power, DESCR_PV_Charging_Power);
+  }
+  else
+  {
+    if (!hasLiveValue(DESCR_PV_Charging_Power))
+    {
+      copyLiveAlias(DESCR_PV_Charging_Power, DESCR_PV_Input_Power);
+    }
+
+    if (!hasLiveValue(DESCR_PV_Input_Power))
+    {
+      copyLiveAlias(DESCR_PV_Input_Power, DESCR_PV_Charging_Power);
+    }
   }
 }
 
@@ -604,6 +628,7 @@ void sendConfigJson(AsyncWebServerRequest *request)
 
 void sendLiveJson(AsyncWebServerRequest *request)
 {
+  syncLegacyLiveDataNames();
   AsyncResponseStream *response = request->beginResponseStream("application/json", 192);
   response->print('[');
   response->print(WiFi.RSSI());
@@ -660,6 +685,9 @@ void setup()
   resetCounter(true);
   DBG_BEGIN(DBG_BAUD); // Debugging towards UART1
   settings.load();
+  haDiscTrigger = settings.data.haDiscovery;
+  haDiscLastAttempt = 0;
+  jsonSize = 0;
   commandFromUser.reserve(32);
   loopbackMessage.reserve(32);
   WiFi.persistent(true); // fix wifi save bug
@@ -815,6 +843,7 @@ void setup()
                 }
                 if (request->hasParam("ha")) {
                     haDiscTrigger = true;
+                    haDiscLastAttempt = 0;
                 }
                 request->send(200, "text/plain", "message received"); });
 
@@ -1041,17 +1070,25 @@ void loop()
 
       mppClient.loop();    // Call the PI Serial Library loop
       mqttclient.loop();
-      if (haDiscTrigger || settings.data.haDiscovery)
+      if (haDiscTrigger || settings.data.haDiscovery || haDiscoveryState.active)
       {
-        if (ESP.getFreeHeap() >= HA_MIN_HEAP &&
-            (millis() - haDiscLastAttempt) >= HA_MIN_INTERVAL_MS &&
-            measureJson(Json) > jsonSize)
+        const bool discoveryActive = haDiscoveryState.active;
+        const bool discoveryRequested = haDiscTrigger;
+        const unsigned long now = millis();
+        const bool intervalReached = discoveryActive
+                                         ? (haDiscLastAttempt == 0 || (now - haDiscLastAttempt) >= HA_STEP_INTERVAL_MS)
+                                         : (discoveryRequested
+                                                ? (haDiscLastAttempt == 0 || (now - haDiscLastAttempt) >= HA_TRIGGER_RETRY_MS)
+                                                : (haDiscLastAttempt == 0 || (now - haDiscLastAttempt) >= HA_MIN_INTERVAL_MS));
+        const bool dataChanged = discoveryActive || discoveryRequested || jsonSize == 0 || measureJson(Json) > jsonSize;
+        if (intervalReached && dataChanged)
         {
-          haDiscLastAttempt = millis();
+          haDiscLastAttempt = now;
           if (sendHaDiscovery())
           {
             haDiscTrigger = false;
             jsonSize = measureJson(Json);
+            mqtttimer = 0;
           }
         }
       }
@@ -1118,23 +1155,23 @@ char *topicBuilder(char *buffer, char const *path, char const *numering = "")
   return buffer;
 }
 
-static void publishJsonValue(PubSubClient &client, const char *topic, JsonVariantConst value)
+static void publishJsonValue(PubSubClient &client, const char *topic, JsonVariantConst value, bool retained = false)
 {
   const char *str = value.as<const char *>();
   if (str != nullptr)
   {
-    client.publish(topic, str);
+    client.publish(topic, str, retained);
     return;
   }
   if (value.isNull())
   {
-    client.publish(topic, "");
+    client.publish(topic, "", retained);
     return;
   }
   char buffer[64];
   size_t n = serializeJson(value, buffer, sizeof(buffer) - 1);
   buffer[n] = '\0';
-  client.publish(topic, buffer);
+  client.publish(topic, buffer, retained);
 }
 
 bool connectMQTT()
@@ -1177,7 +1214,9 @@ bool sendtoMQTT()
     writeLog("No connection to MQTT Server: %d", mqttclient.state());
     return false;
   }
-  if (!settings.data.mqttJson)
+  const bool publishTopicStates = !settings.data.mqttJson || settings.data.haDiscovery || haDiscTrigger;
+  const bool retainTopicStates = settings.data.haDiscovery || haDiscTrigger;
+  if (publishTopicStates)
   {
     char msgBuffer1[MQTT_TOPIC_BUFFER_LEN];
     for (JsonPair jsonDev : Json.as<JsonObject>())
@@ -1185,10 +1224,10 @@ bool sendtoMQTT()
       for (JsonPair jsondat : jsonDev.value().as<JsonObject>())
       {
         snprintf(msgBuffer1, sizeof(msgBuffer1), "%s/%s/%s", settings.data.mqttTopic, jsonDev.key().c_str(), jsondat.key().c_str());
-        publishJsonValue(mqttclient, msgBuffer1, jsondat.value());
+        publishJsonValue(mqttclient, msgBuffer1, jsondat.value(), retainTopicStates);
       }
     }
-    if (mppClient.get.raw.commandAnswer.length() > 0)
+    if (!settings.data.mqttJson && mppClient.get.raw.commandAnswer.length() > 0)
     {
       char cmdTopic[MQTT_TOPIC_BUFFER_LEN];
       snprintf(cmdTopic, sizeof(cmdTopic), "%s/DeviceControl/Set_Command_answer", settings.data.mqttTopic);
@@ -1196,44 +1235,35 @@ bool sendtoMQTT()
       writeLog("raw command answer: %s", mppClient.get.raw.commandAnswer.c_str());
       mppClient.get.raw.commandAnswer = "";
     }
-    // RAW
-    mqttclient.publish(topicBuilder(buff, "RAW/Q1"), (mppClient.get.raw.q1).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QPIGS"), (mppClient.get.raw.qpigs).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QPIGS2"), (mppClient.get.raw.qpigs2).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QPIRI"), (mppClient.get.raw.qpiri).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QT"), (mppClient.get.raw.qt).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QET"), (mppClient.get.raw.qet).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QEY"), (mppClient.get.raw.qey).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QEM"), (mppClient.get.raw.qem).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QED"), (mppClient.get.raw.qed).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QLT"), (mppClient.get.raw.qlt).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QLY"), (mppClient.get.raw.qly).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QLM"), (mppClient.get.raw.qlm).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QLD"), (mppClient.get.raw.qld).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QPI"), (mppClient.get.raw.qpi).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QMOD"), (mppClient.get.raw.qmod).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QALL"), (mppClient.get.raw.qall).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QMN"), (mppClient.get.raw.qmn).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QPIWS"), (mppClient.get.raw.qpiws).c_str());
-    mqttclient.publish(topicBuilder(buff, "RAW/QFLAG"), (mppClient.get.raw.qflag).c_str());
+    if (!settings.data.mqttJson)
+    {
+      // RAW
+      mqttclient.publish(topicBuilder(buff, "RAW/Q1"), (mppClient.get.raw.q1).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QPIGS"), (mppClient.get.raw.qpigs).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QPIGS2"), (mppClient.get.raw.qpigs2).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QPIRI"), (mppClient.get.raw.qpiri).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QT"), (mppClient.get.raw.qt).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QET"), (mppClient.get.raw.qet).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QEY"), (mppClient.get.raw.qey).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QEM"), (mppClient.get.raw.qem).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QED"), (mppClient.get.raw.qed).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QLT"), (mppClient.get.raw.qlt).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QLY"), (mppClient.get.raw.qly).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QLM"), (mppClient.get.raw.qlm).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QLD"), (mppClient.get.raw.qld).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QPI"), (mppClient.get.raw.qpi).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QMOD"), (mppClient.get.raw.qmod).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QALL"), (mppClient.get.raw.qall).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QMN"), (mppClient.get.raw.qmn).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QPIWS"), (mppClient.get.raw.qpiws).c_str());
+      mqttclient.publish(topicBuilder(buff, "RAW/QFLAG"), (mppClient.get.raw.qflag).c_str());
+    }
   }
-  else
+  if (settings.data.mqttJson)
   {
     mqttclient.beginPublish(topicBuilder(buff, "Data"), measureJson(Json), false);
     serializeJson(Json, mqttclient);
     mqttclient.endPublish();
-    if (settings.data.haDiscovery || haDiscTrigger)
-    {
-      char msgBuffer1[MQTT_TOPIC_BUFFER_LEN];
-      for (JsonPair jsonDev : Json.as<JsonObject>())
-      {
-        for (JsonPair jsondat : jsonDev.value().as<JsonObject>())
-        {
-          snprintf(msgBuffer1, sizeof(msgBuffer1), "%s/%s/%s", settings.data.mqttTopic, jsonDev.key().c_str(), jsondat.key().c_str());
-          publishJsonValue(mqttclient, msgBuffer1, jsondat.value());
-        }
-      }
-    }
   }
   mqttclient.publish(topicBuilder(buff, "Alive"), "true", true); // LWT online message must be retained!
   {
@@ -1271,161 +1301,334 @@ void mqttcallback(char *top, unsigned char *payload, unsigned int length)
   }
 }
 
-static size_t appendFmt(char *buffer, size_t bufferSize, size_t pos, const char *fmt, ...)
+class CountingPrint : public Print
 {
-  if (pos >= bufferSize)
+public:
+  using Print::write;
+
+  size_t count = 0;
+
+  size_t write(uint8_t) override
   {
-    return pos;
+    count++;
+    return 1;
   }
-  va_list args;
-  va_start(args, fmt);
-  int written = vsnprintf(buffer + pos, bufferSize - pos, fmt, args);
-  va_end(args);
-  if (written < 0)
+
+  size_t write(const uint8_t *, size_t size) override
   {
-    return pos;
+    count += size;
+    return size;
   }
-  size_t w = static_cast<size_t>(written);
-  if (w >= bufferSize - pos)
-  {
-    return bufferSize - 1;
-  }
-  return pos + w;
-}
+};
 
 static const char *readDescriptorString(const char *const (*table)[4], size_t row, size_t col)
 {
   return reinterpret_cast<const char *>(pgm_read_ptr(&table[row][col]));
 }
 
+static const __FlashStringHelper *flashString(const char *value)
+{
+  return reinterpret_cast<const __FlashStringHelper *>(value);
+}
+
+static bool flashStringHasContent(const char *value)
+{
+  return value != nullptr && pgm_read_byte(value) != 0;
+}
+
+static void printFlashString(Print &out, const char *value)
+{
+  if (value != nullptr)
+  {
+    out.print(flashString(value));
+  }
+}
+
+static size_t appendRamCString(char *buffer, size_t bufferSize, size_t pos, const char *value)
+{
+  if (value == nullptr)
+  {
+    return pos;
+  }
+  while (pos + 1 < bufferSize && *value != '\0')
+  {
+    buffer[pos++] = *value++;
+  }
+  if (bufferSize > 0)
+  {
+    buffer[pos < bufferSize ? pos : (bufferSize - 1)] = '\0';
+  }
+  return pos;
+}
+
+static size_t appendFlashCString(char *buffer, size_t bufferSize, size_t pos, const char *value)
+{
+  if (value == nullptr)
+  {
+    return pos;
+  }
+  char c = 0;
+  while (pos + 1 < bufferSize && (c = static_cast<char>(pgm_read_byte(value++))) != '\0')
+  {
+    buffer[pos++] = c;
+  }
+  if (bufferSize > 0)
+  {
+    buffer[pos < bufferSize ? pos : (bufferSize - 1)] = '\0';
+  }
+  return pos;
+}
+
+static bool copyFlashCStringToBuffer(char *buffer, size_t bufferSize, const char *value)
+{
+  size_t pos = appendFlashCString(buffer, bufferSize, 0, value);
+  return bufferSize > 0 && pos + 1 < bufferSize;
+}
+
+static void resetHaDiscoveryState()
+{
+  haDiscoveryState.active = false;
+  haDiscoveryState.section = 0;
+  haDiscoveryState.index = 0;
+}
+
+static void writeHaDeviceBlock(Print &out, const char *deviceModel, const char *ipStr)
+{
+  out.print(F(",\"dev\":{\"ids\":[\""));
+  out.print(mqttClientId);
+  out.print(F("\"],\"name\":\""));
+  out.print(settings.data.deviceName);
+  out.print(F("\",\"cu\":\"http://"));
+  out.print(ipStr);
+  out.print(F("\",\"mdl\":\""));
+  out.print(deviceModel);
+  out.print(F("\",\"mf\":\"SoftWareCrash\",\"sw\":\""));
+  out.print(SOFTWARE_VERSION);
+  out.print(F("\"}"));
+}
+
+static void writeHaSensorPayload(Print &out, const char *stateGroup, const char *name, const char *icon, const char *unit, const char *devClass, const char *deviceModel, const char *ipStr)
+{
+  out.print(F("{\"name\":\""));
+  out.print(name);
+  out.print(F("\",\"stat_t\":\""));
+  out.print(settings.data.mqttTopic);
+  out.print('/');
+  out.print(stateGroup);
+  out.print('/');
+  out.print(name);
+  out.print(F("\",\"avty_t\":\""));
+  out.print(settings.data.mqttTopic);
+  out.print(F("/Alive\",\"pl_avail\":\"true\",\"pl_not_avail\":\"false\",\"uniq_id\":\""));
+  out.print(mqttClientId);
+  out.print('.');
+  out.print(name);
+  out.print(F("\",\"ic\":\"mdi:"));
+  printFlashString(out, icon);
+  out.print('"');
+  if (flashStringHasContent(unit))
+  {
+    out.print(F(",\"unit_of_meas\":\""));
+    printFlashString(out, unit);
+    out.print('"');
+  }
+  if (flashStringHasContent(devClass))
+  {
+    out.print(F(",\"dev_cla\":\""));
+    printFlashString(out, devClass);
+    out.print('"');
+  }
+  writeHaDeviceBlock(out, deviceModel, ipStr);
+  out.print('}');
+}
+
+static void writeHaTemperaturePayload(Print &out, const char *sensorName, const char *deviceModel, const char *ipStr)
+{
+  out.print(F("{\"name\":\""));
+  out.print(sensorName);
+  out.print(F("\",\"stat_t\":\""));
+  out.print(settings.data.mqttTopic);
+  out.print('/');
+  out.print(sensorName);
+  out.print(F("\",\"avty_t\":\""));
+  out.print(settings.data.mqttTopic);
+  out.print(F("/Alive\",\"pl_avail\":\"true\",\"pl_not_avail\":\"false\",\"uniq_id\":\""));
+  out.print(mqttClientId);
+  out.print('.');
+  out.print(sensorName);
+  out.print(F("\",\"ic\":\"mdi:thermometer-lines\",\"unit_of_meas\":\""));
+  printFlashString(out, UNIT_degC);
+  out.print(F("\",\"dev_cla\":\"temperature\""));
+  writeHaDeviceBlock(out, deviceModel, ipStr);
+  out.print('}');
+}
+
+static bool beginHaDiscoveryPublish(char *topicBuffer, size_t topicBufferSize, const char *name, bool nameInProgmem, size_t payloadLength)
+{
+  size_t pos = 0;
+  pos = appendRamCString(topicBuffer, topicBufferSize, pos, "homeassistant/sensor/");
+  pos = appendRamCString(topicBuffer, topicBufferSize, pos, settings.data.mqttTopic);
+  pos = appendRamCString(topicBuffer, topicBufferSize, pos, "/");
+  pos = nameInProgmem ? appendFlashCString(topicBuffer, topicBufferSize, pos, name)
+                      : appendRamCString(topicBuffer, topicBufferSize, pos, name);
+  pos = appendRamCString(topicBuffer, topicBufferSize, pos, "/config");
+  if (pos + 1 >= topicBufferSize)
+  {
+    writeLog("HA discovery topic too long");
+    return false;
+  }
+  if (!mqttclient.beginPublish(topicBuffer, payloadLength, true))
+  {
+    writeLog("HA discovery publish failed");
+    return false;
+  }
+  return true;
+}
+
+static bool publishHaSensorDiscovery(const char *stateGroup, const char *name, const char *icon, const char *unit, const char *devClass, const char *deviceModel, const char *ipStr, char *topicBuffer, size_t topicBufferSize)
+{
+  CountingPrint counter;
+  writeHaSensorPayload(counter, stateGroup, name, icon, unit, devClass, deviceModel, ipStr);
+  if (!beginHaDiscoveryPublish(topicBuffer, topicBufferSize, name, false, counter.count))
+  {
+    return false;
+  }
+  writeHaSensorPayload(mqttclient, stateGroup, name, icon, unit, devClass, deviceModel, ipStr);
+  return mqttclient.endPublish();
+}
+
+static bool publishHaTemperatureDiscovery(const char *sensorName, const char *deviceModel, const char *ipStr, char *topicBuffer, size_t topicBufferSize)
+{
+  CountingPrint counter;
+  writeHaTemperaturePayload(counter, sensorName, deviceModel, ipStr);
+  if (!beginHaDiscoveryPublish(topicBuffer, topicBufferSize, sensorName, false, counter.count))
+  {
+    return false;
+  }
+  writeHaTemperaturePayload(mqttclient, sensorName, deviceModel, ipStr);
+  return mqttclient.endPublish();
+}
+
 bool sendHaDiscovery()
 {
-  if (ESP.getFreeHeap() < HA_MIN_HEAP)
+  const uint32_t minHeapRequired = haDiscTrigger ? HA_TRIGGER_MIN_HEAP : HA_MIN_HEAP;
+  const uint32_t freeHeap = ESP.getFreeHeap();
+  if (freeHeap < minHeapRequired)
   {
-    writeLog("HA discovery skipped (low heap)");
+    resetHaDiscoveryState();
+    writeLog("HA discovery skipped (heap=%u req=%u)", freeHeap, minHeapRequired);
     return false;
   }
   if (!connectMQTT())
   {
+    resetHaDiscoveryState();
     return false;
+  }
+  if (!haDiscoveryState.active)
+  {
+    haDiscoveryState.active = true;
+    haDiscoveryState.section = 0;
+    haDiscoveryState.index = 0;
   }
   const char *deviceModel = staticData["Device_Model"] | "";
   char ipStr[16];
   IPAddress ip = WiFi.localIP();
   snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
-  char deviceDesc[256];
-  size_t devicePos = 0;
-  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"dev\":{");
-  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"ids\":[\"%s\"],", mqttClientId);
-  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"name\":\"%s\",", settings.data.deviceName);
-  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"cu\":\"http://%s\",", ipStr);
-  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"mdl\":\"%s\",", deviceModel);
-  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"mf\":\"SoftWareCrash\",");
-  devicePos = appendFmt(deviceDesc, sizeof(deviceDesc), devicePos, "\"sw\":\"%s\"}", SOFTWARE_VERSION);
-
   char topBuff[MQTT_TOPIC_BUFFER_LEN];
-  char payload[512];
-  for (size_t i = 0; i < sizeof haStaticDescriptor / sizeof haStaticDescriptor[0]; i++)
+  char nameBuf[80];
+  while (haDiscoveryState.section == 0)
   {
-    const char *name = readDescriptorString(haStaticDescriptor, i, 0);
-    const char *icon = readDescriptorString(haStaticDescriptor, i, 1);
-    const char *unit = readDescriptorString(haStaticDescriptor, i, 2);
-    const char *devClass = readDescriptorString(haStaticDescriptor, i, 3);
-    if (staticData[name].is<JsonVariant>())
+    if (haDiscoveryState.index >= (sizeof haStaticDescriptor / sizeof haStaticDescriptor[0]))
     {
-      size_t pos = 0;
-      pos = appendFmt(payload, sizeof(payload), pos, "{");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"name\":\"%s\",", name);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"stat_t\":\"%s/DeviceData/%s\",", settings.data.mqttTopic, name);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"avty_t\":\"%s/Alive\",", settings.data.mqttTopic);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_avail\":\"true\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_not_avail\":\"false\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"uniq_id\":\"%s.%s\",", mqttClientId, name);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"ic\":\"mdi:%s\",", icon);
-      if (unit != nullptr && unit[0] != '\0')
+      haDiscoveryState.section = 1;
+      haDiscoveryState.index = 0;
+      break;
+    }
+
+    const char *name = readDescriptorString(haStaticDescriptor, haDiscoveryState.index, 0);
+    const char *icon = readDescriptorString(haStaticDescriptor, haDiscoveryState.index, 1);
+    const char *unit = readDescriptorString(haStaticDescriptor, haDiscoveryState.index, 2);
+    const char *devClass = readDescriptorString(haStaticDescriptor, haDiscoveryState.index, 3);
+    haDiscoveryState.index++;
+    if (!copyFlashCStringToBuffer(nameBuf, sizeof(nameBuf), name))
+    {
+      resetHaDiscoveryState();
+      writeLog("HA discovery key too long");
+      return false;
+    }
+    if (staticData[nameBuf].is<JsonVariant>())
+    {
+      if (!publishHaSensorDiscovery("DeviceData", nameBuf, icon, unit, devClass, deviceModel, ipStr, topBuff, sizeof(topBuff)))
       {
-        pos = appendFmt(payload, sizeof(payload), pos, "\"unit_of_meas\":\"%s\",", unit);
+        resetHaDiscoveryState();
+        writeLog("HA discovery publish failed");
+        return false;
       }
-      if (devClass != nullptr && devClass[0] != '\0')
-      {
-        pos = appendFmt(payload, sizeof(payload), pos, "\"dev_cla\":\"%s\",", devClass);
-      }
-      pos = appendFmt(payload, sizeof(payload), pos, "%s}", deviceDesc);
-      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, name); // build the topic
-      mqttclient.beginPublish(topBuff, pos, true);
-      mqttclient.write((const uint8_t *)payload, pos);
-      mqttclient.endPublish();
+      yield();
+      return false;
     }
   }
 
-  for (size_t i = 0; i < sizeof haLiveDescriptor / sizeof haLiveDescriptor[0]; i++)
+  while (haDiscoveryState.section == 1)
   {
-    const char *name = readDescriptorString(haLiveDescriptor, i, 0);
-    const char *icon = readDescriptorString(haLiveDescriptor, i, 1);
-    const char *unit = readDescriptorString(haLiveDescriptor, i, 2);
-    const char *devClass = readDescriptorString(haLiveDescriptor, i, 3);
-    if (liveData[name].is<JsonVariant>())
+    if (haDiscoveryState.index >= (sizeof haLiveDescriptor / sizeof haLiveDescriptor[0]))
     {
-      size_t pos = 0;
-      pos = appendFmt(payload, sizeof(payload), pos, "{");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"name\":\"%s\",", name);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"stat_t\":\"%s/LiveData/%s\",", settings.data.mqttTopic, name);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"avty_t\":\"%s/Alive\",", settings.data.mqttTopic);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_avail\":\"true\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_not_avail\":\"false\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"uniq_id\":\"%s.%s\",", mqttClientId, name);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"ic\":\"mdi:%s\",", icon);
-      if (unit != nullptr && unit[0] != '\0')
+      haDiscoveryState.section = 2;
+      haDiscoveryState.index = 0;
+      break;
+    }
+
+    const char *name = readDescriptorString(haLiveDescriptor, haDiscoveryState.index, 0);
+    const char *icon = readDescriptorString(haLiveDescriptor, haDiscoveryState.index, 1);
+    const char *unit = readDescriptorString(haLiveDescriptor, haDiscoveryState.index, 2);
+    const char *devClass = readDescriptorString(haLiveDescriptor, haDiscoveryState.index, 3);
+    haDiscoveryState.index++;
+    if (!copyFlashCStringToBuffer(nameBuf, sizeof(nameBuf), name))
+    {
+      resetHaDiscoveryState();
+      writeLog("HA discovery key too long");
+      return false;
+    }
+    if (liveData[nameBuf].is<JsonVariant>())
+    {
+      if (!publishHaSensorDiscovery("LiveData", nameBuf, icon, unit, devClass, deviceModel, ipStr, topBuff, sizeof(topBuff)))
       {
-        pos = appendFmt(payload, sizeof(payload), pos, "\"unit_of_meas\":\"%s\",", unit);
+        resetHaDiscoveryState();
+        writeLog("HA discovery publish failed");
+        return false;
       }
-      if (devClass != nullptr && devClass[0] != '\0')
-      {
-        pos = appendFmt(payload, sizeof(payload), pos, "\"dev_cla\":\"%s\",", devClass);
-      }
-      pos = appendFmt(payload, sizeof(payload), pos, "%s}", deviceDesc);
-      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/%s/config", settings.data.mqttTopic, name); // build the topic
-      mqttclient.beginPublish(topBuff, pos, true);
-      mqttclient.write((const uint8_t *)payload, pos);
-      mqttclient.endPublish();
+      yield();
+      return false;
     }
   }
 #ifdef TEMPSENS_PIN
-  // Ext Temp sensors
-  if (tempSens.indexExist(tempSens.getSensorsCount() - 1))
+  while (haDiscoveryState.section == 2)
   {
-    for (size_t i = 0; i < tempSens.getSensorsCount(); i++)
+    if (!tempSens.indexExist(tempSens.getSensorsCount() - 1) || haDiscoveryState.index >= tempSens.getSensorsCount())
     {
-      char tempDeviceDesc[256];
-      size_t tempDescPos = 0;
-      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"dev\":{");
-      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"ids\":[\"%s\"],", mqttClientId);
-      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"name\":\"%s\",", settings.data.deviceName);
-      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"cu\":\"http://%s\",", ipStr);
-      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"mdl\":\"EPEver2MQTT\",");
-      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"mf\":\"SoftWareCrash\",");
-      tempDescPos = appendFmt(tempDeviceDesc, sizeof(tempDeviceDesc), tempDescPos, "\"sw\":\"%s\"}", SOFTWARE_VERSION);
-
-      size_t pos = 0;
-      pos = appendFmt(payload, sizeof(payload), pos, "{");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"name\":\"DS18B20_%d\",", (i + 1));
-      pos = appendFmt(payload, sizeof(payload), pos, "\"stat_t\":\"%s/DS18B20_%d\",", settings.data.mqttTopic, (i + 1));
-      pos = appendFmt(payload, sizeof(payload), pos, "\"avty_t\":\"%s/Alive\",", settings.data.mqttTopic);
-      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_avail\":\"true\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"pl_not_avail\":\"false\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"uniq_id\":\"%s.DS18B20_%d\",", mqttClientId, (i + 1));
-      pos = appendFmt(payload, sizeof(payload), pos, "\"ic\":\"mdi:thermometer-lines\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"unit_of_meas\":\"°C\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "\"dev_cla\":\"temperature\",");
-      pos = appendFmt(payload, sizeof(payload), pos, "%s}", tempDeviceDesc);
-      snprintf(topBuff, sizeof(topBuff), "homeassistant/sensor/%s/DS18B20_%d/config", settings.data.mqttTopic, (i + 1)); // build the topic
-
-      mqttclient.beginPublish(topBuff, pos, true);
-      mqttclient.write((const uint8_t *)payload, pos);
-      mqttclient.endPublish();
+      haDiscoveryState.section = 3;
+      break;
     }
+
+    char sensorName[16];
+    snprintf(sensorName, sizeof(sensorName), "DS18B20_%u", static_cast<unsigned>(haDiscoveryState.index + 1));
+    haDiscoveryState.index++;
+    if (!publishHaTemperatureDiscovery(sensorName, deviceModel, ipStr, topBuff, sizeof(topBuff)))
+    {
+      resetHaDiscoveryState();
+      writeLog("HA discovery publish failed");
+      return false;
+    }
+    yield();
+    return false;
+  }
+#else
+  if (haDiscoveryState.section == 2)
+  {
+    haDiscoveryState.section = 3;
   }
 #endif
+  resetHaDiscoveryState();
   return true;
 }
 
