@@ -138,7 +138,8 @@ bool PI_Serial::PIXX_Q1()
         char bufQ1[256];
         commandAnswer.toCharArray(bufQ1, sizeof(bufQ1));
         char *fieldsQ1[30];
-        int StringCount = pi_split_fields(bufQ1, delimiter[0], fieldsQ1, 30);
+        // Q1 answers are space-separated on PI18 as well, even though the protocol uses commas elsewhere.
+        int StringCount = pi_split_fields(bufQ1, ' ', fieldsQ1, 30);
         if (StringCount >= (int)Q1_108_length)
         {
             q1List = Q1_108;

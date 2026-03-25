@@ -412,6 +412,10 @@ String PI_Serial::requestData(String command)
     {
         busyCount--;
     }
+    if (requestSettlingTime > 0)
+    {
+        delay(requestSettlingTime);
+    }
     return commandBuffer;
 }
 
