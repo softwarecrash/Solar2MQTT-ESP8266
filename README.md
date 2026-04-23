@@ -47,7 +47,7 @@
 
 
 # How to use:
-- flash your ESP8266 (recommended Wemos D1 Mini) with our [Flash2MQTT-Tool](https://all-solutions.github.io/Flash2MQTT/?get=Solar2MQTT) or with our desktop [2MQTT-Flasher](https://github.com/all-solutions/2MQTT-Flasher)
+- flash your ESP8266 (recommended Wemos D1 Mini) with our [Flash2MQTT-Tool]([https://flash.2mqtt.de/?get=Solar2MQTT-ESP8266) or our desktop [2MQTT-Flasher](https://github.com/all-solutions/2MQTT-Flasher)
 - connect the ESP like the [wiring diagram](https://github.com/softwarecrash/Solar2MQTT-ESP8266/wiki/Wiring-Diagram)
 - search for the wifi ap "Solar2MQTT-AP" and connect to it
 - surf to 192.168.4.1 and set up your wifi and optional MQTT
